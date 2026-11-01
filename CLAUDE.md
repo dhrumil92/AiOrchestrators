@@ -28,6 +28,11 @@ Run these from `server/`:
 
 Shared API types live in `shared/api.ts`.
 
+## CI
+- `.githooks/pre-commit` runs the type check and server tests. After a fresh clone, enable it with `git config core.hooksPath .githooks`.
+- `.github/workflows/ci.yml` runs on every push and pull request, using a fresh PostgreSQL database.
+- Keep tests free of real AI calls and API keys.
+
 ## Non-negotiable rules
 1. **The LLM never produces numbers.** Subsidy, cost, payback, savings, scores and ranking come from `server/src/rules/`.
 2. **No rule value without a source.** Rule values belong in `server/src/rules/config.ts` and must match `docs/RULES.md`. Never invent a rule or use one from memory.
