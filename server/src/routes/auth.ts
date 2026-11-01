@@ -7,8 +7,14 @@ import {
   setSessionCookie,
 } from '../auth/middleware.js';
 import { createSession, deleteSession } from '../auth/sessions.js';
-import { login, signup } from '../services/users.js';
-import { loginSchema, signupSchema } from './validation.js';
+import { changePassword, login, requestPasswordReset, resetPassword, signup } from '../services/users.js';
+import {
+  changePasswordSchema,
+  forgotPasswordSchema,
+  loginSchema,
+  resetPasswordSchema,
+  signupSchema,
+} from './validation.js';
 
 export const authRouter = Router();
 
@@ -33,4 +39,21 @@ authRouter.post('/logout', async (req, res) => {
 
 authRouter.get('/me', requireAuth, (_req, res) => {
   res.json(currentUser(res));
+});
+
+// Always 204, so the reply does not reveal which emails have accounts.
+authRouter.post('/forgot-password', async (req, res) => {
+  await requestPasswordReset(forgotPasswordSchema.parse(req.body).email);
+  res.status(204).end();
+});
+
+authRouter.post('/reset-password', async (req, res) => {
+  const user = await resetPassword(resetPasswordSchema.parse(req.body));
+  setSessionCookie(res, await createSession(user.id));
+  res.json(user);
+});
+
+authRouter.post('/change-password', requireAuth, async (req, res) => {
+  await changePassword(currentUser(res), changePasswordSchema.parse(req.body), readSessionToken(req));
+  res.status(204).end();
 });

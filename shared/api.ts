@@ -41,6 +41,25 @@ export interface LoginBody {
   password: string;
 }
 
+/** POST /auth/forgot-password. Always answers 204, whether or not the email has an account. */
+export interface ForgotPasswordBody {
+  email: string;
+}
+
+/** POST /auth/reset-password. `token` comes from the emailed link. Logs in and returns the AuthUser. */
+export interface ResetPasswordBody {
+  token: string;
+  /** At least 8 characters. */
+  password: string;
+}
+
+/** POST /auth/change-password, logged in. Answers 204 and logs out the account's other sessions. */
+export interface ChangePasswordBody {
+  currentPassword: string;
+  /** At least 8 characters. */
+  newPassword: string;
+}
+
 export interface ApiError {
   error: { code: string; message: string };
 }

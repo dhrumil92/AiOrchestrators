@@ -11,6 +11,9 @@ const ai = vi.hoisted(() => ({
 }));
 
 vi.mock('../ai/index.js', () => ai);
+
+const email = vi.hoisted(() => ({ sendPasswordResetEmail: vi.fn(), sendEmail: vi.fn() }));
+vi.mock('../services/email.js', () => email);
 vi.mock('../security/index.js', () => ({
   processVendorNotes: (raw: string | null) => {
     if (raw === null) return { clean: null, flagged: false, reason: null, removedText: null };
@@ -110,6 +113,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   ai.explainEstimate.mockResolvedValue({ text: 'Plain explanation', source: 'live' });
   ai.explainRecommendation.mockResolvedValue({ reasons: ['A good choice'], source: 'live' });
+  email.sendPasswordResetEmail.mockResolvedValue(undefined);
 });
 
 afterAll(async () => {
@@ -287,6 +291,99 @@ describe('accounts', () => {
     await request(app).post('/api/auth/signup').send({ ...base, email: 'not-an-email' }).expect(400);
     await request(app).post('/api/auth/signup').send({ ...base, email: 'v@example.com', role: 'vendor' }).expect(400);
     await request(app).post('/api/auth/signup').send({ ...base, email: 'a@example.com', role: 'admin' }).expect(400);
+  });
+});
+
+describe('password reset', () => {
+  const NEW_PASSWORD = 'brand new password';
+
+  async function resetToken(address: string): Promise<string> {
+    await request(app).post('/api/auth/forgot-password').send({ email: address }).expect(204);
+    expect(email.sendPasswordResetEmail).toHaveBeenCalledTimes(1);
+    const link: string = email.sendPasswordResetEmail.mock.calls[0][2];
+    return new URL(link).searchParams.get('reset')!;
+  }
+
+  it('resets a forgotten password with the emailed link and logs out old sessions', async () => {
+    const { agent, email: address } = await signup('household');
+    const token = await resetToken(address);
+
+    const reset = request.agent(app);
+    const res = await reset.post('/api/auth/reset-password').send({ token, password: NEW_PASSWORD }).expect(200);
+    expect(res.body.email).toBe(address);
+    await reset.get('/api/auth/me').expect(200);
+
+    await agent.get('/api/auth/me').expect(401);
+    await request(app).post('/api/auth/login').send({ email: address, password: PASSWORD }).expect(401);
+    await request(app).post('/api/auth/login').send({ email: address, password: NEW_PASSWORD }).expect(200);
+  });
+
+  it('gives the same reply for an unknown email and sends nothing', async () => {
+    await request(app).post('/api/auth/forgot-password').send({ email: 'nobody@example.com' }).expect(204);
+    expect(email.sendPasswordResetEmail).not.toHaveBeenCalled();
+  });
+
+  it('stores only a hash of the reset token', async () => {
+    const { email: address, user } = await signup('household');
+    const token = await resetToken(address);
+    const { rows } = await pool.query('SELECT token_hash FROM password_reset_tokens WHERE user_id = $1', [user.id]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].token_hash).not.toBe(token);
+  });
+
+  it('accepts a link only once', async () => {
+    const { email: address } = await signup('household');
+    const token = await resetToken(address);
+    await request(app).post('/api/auth/reset-password').send({ token, password: NEW_PASSWORD }).expect(200);
+    const again = await request(app).post('/api/auth/reset-password').send({ token, password: 'another password' }).expect(400);
+    expect(again.body.error.code).toBe('INVALID_RESET_LINK');
+  });
+
+  it('rejects an expired link, a made-up link and a short password', async () => {
+    const { email: address, user } = await signup('household');
+    const token = await resetToken(address);
+    await request(app).post('/api/auth/reset-password').send({ token, password: 'short' }).expect(400);
+    await pool.query(`UPDATE password_reset_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = $1`, [user.id]);
+    const expired = await request(app).post('/api/auth/reset-password').send({ token, password: NEW_PASSWORD }).expect(400);
+    expect(expired.body.error.code).toBe('INVALID_RESET_LINK');
+    await request(app).post('/api/auth/reset-password').send({ token: 'made-up', password: NEW_PASSWORD }).expect(400);
+  });
+
+  it('sends at most one email a minute for the same account', async () => {
+    const { email: address } = await signup('household');
+    await request(app).post('/api/auth/forgot-password').send({ email: address }).expect(204);
+    await request(app).post('/api/auth/forgot-password').send({ email: address }).expect(204);
+    expect(email.sendPasswordResetEmail).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('change password', () => {
+  it('changes the password, keeps this session and logs out the others', async () => {
+    const { agent, email: address } = await signup('household');
+    const other = request.agent(app);
+    await other.post('/api/auth/login').send({ email: address, password: PASSWORD }).expect(200);
+
+    await agent
+      .post('/api/auth/change-password')
+      .send({ currentPassword: PASSWORD, newPassword: 'changed password' })
+      .expect(204);
+
+    await agent.get('/api/auth/me').expect(200);
+    await other.get('/api/auth/me').expect(401);
+    await request(app).post('/api/auth/login').send({ email: address, password: 'changed password' }).expect(200);
+  });
+
+  it('refuses a wrong current password and needs a login', async () => {
+    const { agent } = await signup('household');
+    const res = await agent
+      .post('/api/auth/change-password')
+      .send({ currentPassword: 'wrong password', newPassword: 'changed password' })
+      .expect(400);
+    expect(res.body.error.code).toBe('WRONG_PASSWORD');
+    await request(app)
+      .post('/api/auth/change-password')
+      .send({ currentPassword: PASSWORD, newPassword: 'changed password' })
+      .expect(401);
   });
 });
 

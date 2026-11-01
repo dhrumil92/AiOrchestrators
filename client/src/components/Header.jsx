@@ -3,6 +3,47 @@ import { api } from '../lib/api.js';
 import { signOut } from '../lib/storage.js';
 import { useApp } from '../AppContext.jsx';
 import { Icon } from './ui/bits.jsx';
+import { useToast } from './ui/Toast.jsx';
+
+/** Logged-in password change. Other devices are logged out; this one stays in. */
+function ChangePassword() {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ current: '', next: '', confirm: '' });
+  const [busy, setBusy] = useState(false);
+  const set = k => e => setF(s => ({ ...s, [k]: e.target.value }));
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!f.current) return toast('Enter your current password.', 'error');
+    if (f.next.length < 8) return toast('Use at least 8 characters for your new password.', 'error');
+    if (f.next !== f.confirm) return toast('The two new passwords do not match.', 'error');
+    setBusy(true);
+    try {
+      await api.changePassword(f.current, f.next);
+      toast('Password changed. Other devices have been logged out.', 'success');
+      setF({ current: '', next: '', confirm: '' });
+      setOpen(false);
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally { setBusy(false); }
+  }
+
+  const field = 'w-full text-gray-800 rounded-lg px-3 py-2 text-sm border border-gray-200 focus:outline-none focus:border-green-400';
+  return (
+    <div className="mt-4">
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} className="text-sm font-bold text-gray-800 hover:text-green-700">🔒 Change password {open ? '▴' : '▾'}</button>
+      {open && (
+        <form onSubmit={submit} noValidate className="mt-2 space-y-2">
+          <input type="password" aria-label="Current password" placeholder="Current password" value={f.current} onChange={set('current')} autoComplete="current-password" className={field} />
+          <input type="password" aria-label="New password" placeholder="New password (at least 8 characters)" value={f.next} onChange={set('next')} autoComplete="new-password" className={field} />
+          <input type="password" aria-label="Repeat new password" placeholder="Repeat new password" value={f.confirm} onChange={set('confirm')} autoComplete="new-password" className={field} />
+          <button type="submit" disabled={busy} className="w-full text-sm font-semibold px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white disabled:opacity-60">{busy ? 'Please wait…' : 'Save new password'}</button>
+        </form>
+      )}
+    </div>
+  );
+}
 
 export default function Header({ tab, setTab, settingsOpen, setSettingsOpen }) {
   const { session } = useApp();
@@ -87,6 +128,7 @@ export default function Header({ tab, setTab, settingsOpen, setSettingsOpen }) {
               <li className={health?.ai?.groq ? 'text-green-700' : 'text-amber-700'}>{health?.ai?.groq ? '✅ Groq configured' : '⚠️ Groq not configured'}</li>
             </ul>
           </div>
+          <ChangePassword />
           <button onClick={logout} className="mt-4 w-full text-sm font-semibold px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Logout</button>
         </div>
       )}

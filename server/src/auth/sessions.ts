@@ -4,7 +4,7 @@ import { pool } from '../db/pool.js';
 
 export const SESSION_DAYS = 7;
 
-const hashToken = (token: string): string => createHash('sha256').update(token).digest('hex');
+export const hashToken = (token: string): string => createHash('sha256').update(token).digest('hex');
 
 export async function createSession(userId: string): Promise<string> {
   const token = randomBytes(32).toString('base64url');
@@ -29,4 +29,12 @@ export async function findSessionUser(token: string): Promise<AuthUser | null> {
 
 export async function deleteSession(token: string): Promise<void> {
   await pool.query('DELETE FROM sessions WHERE token_hash = $1', [hashToken(token)]);
+}
+
+/** Logs the account out everywhere except the session in `keepToken`, if given. */
+export async function deleteOtherSessions(userId: string, keepToken: string | null): Promise<void> {
+  await pool.query('DELETE FROM sessions WHERE user_id = $1 AND token_hash <> $2', [
+    userId,
+    keepToken ? hashToken(keepToken) : '',
+  ]);
 }

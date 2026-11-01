@@ -14,7 +14,7 @@ async function call(path, options) {
   } catch {
     throw new ApiError('Cannot reach the server. Is it running on port 4000?', 'NETWORK', 0);
   }
-  const body = await res.json().catch(() => null);
+  const body = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) throw new ApiError(body?.error?.message || `Server error (${res.status})`, body?.error?.code || 'SERVER', res.status);
   return body;
 }
@@ -31,6 +31,9 @@ export const api = {
   signup: body => call('/auth/signup', json('POST', body)),
   login: body => call('/auth/login', json('POST', body)),
   logout: () => call('/auth/logout', { method: 'POST' }),
+  forgotPassword: email => call('/auth/forgot-password', json('POST', { email })),
+  resetPassword: (token, password) => call('/auth/reset-password', json('POST', { token, password })),
+  changePassword: (currentPassword, newPassword) => call('/auth/change-password', json('POST', { currentPassword, newPassword })),
   health: () => call('/health'),
   rules: () => call('/rules'),
   calculator: (kw, monthlyUnits) => call(`/calculator?kw=${kw}&monthlyUnits=${monthlyUnits}`),

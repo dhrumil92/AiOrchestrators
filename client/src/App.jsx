@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { db, refreshMarket, restoreSession, useDB } from './lib/storage.js';
+import { db, refreshMarket, restoreSession, signIn, useDB } from './lib/storage.js';
 import { AppCtx } from './AppContext.jsx';
 import Header from './components/Header.jsx';
 import Login from './components/login/Login.jsx';
@@ -14,8 +14,21 @@ export default function App() {
   const session = db.session();
   const [tab, setTab] = useState(session?.role === 'vendor' ? 'vendor' : 'household');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // A password reset link opens the app with ?reset=<token>.
+  const [resetToken, setResetToken] = useState(() => new URLSearchParams(window.location.search).get('reset'));
 
   useEffect(() => { restoreSession(); }, []);
+
+  // Take the token out of the address bar so it is not kept in history or shared by accident.
+  useEffect(() => {
+    if (resetToken) window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+  }, [resetToken]);
+
+  const finishReset = useCallback(user => {
+    setResetToken(null);
+    if (user) signIn(user);
+    else restoreSession();
+  }, []);
 
   // Keep data fresh so a quote sent in another tab appears without a reload.
   useEffect(() => {
@@ -36,8 +49,8 @@ export default function App() {
   return (
     <AppCtx.Provider value={ctx}>
       {serverError && <div role="alert" className="relative z-[10000] bg-red-600 text-white text-sm font-semibold text-center px-4 py-2">{serverError}</div>}
-      {!session ? (
-        <Login />
+      {!session || resetToken ? (
+        <Login resetToken={resetToken} onResetDone={finishReset} />
       ) : (
         <>
           <Header tab={tab} setTab={goTab} settingsOpen={settingsOpen} setSettingsOpen={setSettingsOpen} />

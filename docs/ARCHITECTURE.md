@@ -199,7 +199,11 @@ Only `/health`, `/rules` and `/auth/*` work without a login. Access is enforced 
 
 Another user's record returns 404, the same as a missing record, so ids cannot be probed. A quote's vendor always comes from the session, never from the request body. Photos are served through the API, not from a public folder.
 
-Limits: email is not verified, and there is no password reset yet.
+**Password reset.** `POST /auth/forgot-password` always answers 204, so it does not reveal which emails have accounts. For a real account it emails a link to `APP_URL/?reset=<token>`. The token is random, stored only as a hash in `password_reset_tokens`, works once, expires after 1 hour, and only the newest one works. One email per account per minute at most. `POST /auth/reset-password` sets the new password, logs the account out everywhere, clears login lockouts for that email and logs in on this device. Email goes through Resend when `RESEND_API_KEY` is set; otherwise it is printed in the server console.
+
+**Change password.** `POST /auth/change-password` needs a login and the current password. It logs out the account's other sessions and keeps this one. Ten wrong current passwords lock it for 15 minutes.
+
+Limits: email is not verified.
 
 ## 10. Security and privacy basics
 - Keep API keys in `.env` on the server only.

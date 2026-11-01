@@ -43,12 +43,14 @@ export const listRequestsQuery = z.object({ status: z.enum(['open', 'closed']).o
 
 const email = z.string().trim().toLowerCase().max(200).pipe(z.email());
 
+const newPassword = z.string().min(8, 'Use at least 8 characters').max(128);
+
 export const signupSchema = z
   .object({
     role: z.enum(['household', 'vendor']),
     name: shortText,
     email,
-    password: z.string().min(8, 'Use at least 8 characters').max(128),
+    password: newPassword,
     city: shortText.optional(),
   })
   .refine((body) => body.role !== 'vendor' || body.city !== undefined, {
@@ -57,6 +59,18 @@ export const signupSchema = z
   });
 
 export const loginSchema = z.object({ email, password: z.string().min(1).max(128) });
+
+export const forgotPasswordSchema = z.object({ email });
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1).max(200),
+  password: newPassword,
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(128),
+  newPassword,
+});
 
 export const createQuoteSchema = z.object({
   systemKw: z.number().positive().max(MAX_KW),
