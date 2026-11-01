@@ -6,7 +6,7 @@
 
 export const API_BASE_URL = 'http://localhost:4000/api';
 
-/** Fixed IDs from the seed data, so the client can open the demo directly. */
+/** Fixed id of the seeded demo request. */
 export const DEMO_REQUEST_ID = '11111111-1111-4111-8111-111111111111';
 
 export type Language = 'en' | 'hi' | 'gu';
@@ -14,6 +14,32 @@ export type RequestStatus = 'open' | 'closed';
 export type QuoteStatus = 'submitted' | 'accepted' | 'not_selected';
 export type AiSource = 'live' | 'saved' | 'template';
 export type Confidence = 'low' | 'medium' | 'high';
+
+export type UserRole = 'household' | 'vendor';
+
+export interface AuthUser {
+  id: string;
+  role: UserRole;
+  name: string;
+  email: string;
+  /** Set only for vendor accounts. */
+  vendorId: string | null;
+}
+
+export interface SignupBody {
+  role: UserRole;
+  /** A person's name, or the company name for a vendor. */
+  name: string;
+  email: string;
+  password: string;
+  /** Required for vendors. */
+  city?: string;
+}
+
+export interface LoginBody {
+  email: string;
+  password: string;
+}
 
 export interface ApiError {
   error: { code: string; message: string };
@@ -58,9 +84,14 @@ export interface PhotoAssessment {
   source: AiSource;
 }
 
+/**
+ * A vendor gets a limited view until its quote is accepted: masked name, city only, location
+ * rounded to about 1 km, and no phone number.
+ */
 export interface ServiceRequest {
   id: string;
   householdName: string;
+  contactPhone: string | null;
   latitude: number;
   longitude: number;
   addressText: string | null;
@@ -99,8 +130,8 @@ export interface Estimate {
   rulesUsed: string[];
 }
 
+/** The vendor comes from the logged-in account, never from the request body. */
 export interface CreateQuoteBody {
-  vendorId: string;
   systemKw: number;
   priceRupees?: number | null;
   panelBrand?: string | null;

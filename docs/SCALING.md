@@ -104,9 +104,9 @@ Assumes 10,000 requests a month. **Infrastructure figures are planning estimates
 That is about **$0.04 per request**. Batching explanations would lower the AI line further. Gemini prices may change, so check the current price before presenting.
 
 ## 9. Reliability and security for production
-- Add phone OTP login with household and vendor roles.
+- Add email verification, password reset and optional phone OTP to the existing accounts.
+- Move the login lockout from server memory to Redis, so it holds across API instances.
 - Verify vendors against the scheme's registered vendor list.
-- Add ownership checks on every request and quote.
 - Rate-limit public endpoints.
 - Add audit logs for accepted quotes.
 - Comply with India's DPDP Act for location, phone and photo data, with legal review.

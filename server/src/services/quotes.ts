@@ -1,4 +1,5 @@
 import type {
+  AuthUser,
   CreateQuoteBody,
   Quote,
   QuoteStatus,
@@ -9,7 +10,7 @@ import { pool } from '../db/pool.js';
 import { withTransaction } from '../db/transaction.js';
 import { processVendorNotes } from '../security/index.js';
 import { HttpError, notFound, requestClosed } from './errors.js';
-import { getRequest } from './requests.js';
+import { getRequest, viewRequest } from './requests.js';
 
 export interface QuoteRow {
   id: string;
@@ -99,14 +100,16 @@ export async function quoteRowsForRequest(requestId: string): Promise<QuoteRow[]
   return rows;
 }
 
-export async function listRequestQuotes(requestId: string): Promise<Quote[]> {
-  await getRequest(requestId);
-  return (await quoteRowsForRequest(requestId)).map(toQuote);
+/** A household sees every quote on its request. A vendor sees only its own. */
+export async function listRequestQuotes(requestId: string, user: AuthUser): Promise<Quote[]> {
+  await viewRequest(requestId, user);
+  const rows = await quoteRowsForRequest(requestId);
+  const visible = user.role === 'vendor' ? rows.filter((row) => row.vendor_id === user.vendorId) : rows;
+  return visible.map(toQuote);
 }
 
-export async function listVendorQuotes(vendorId: string): Promise<Quote[]> {
-  const vendor = await pool.query('SELECT 1 FROM vendors WHERE id = $1', [vendorId]);
-  if (!vendor.rowCount) throw notFound('Vendor');
+export async function listVendorQuotes(vendorId: string, user: AuthUser): Promise<Quote[]> {
+  if (user.vendorId !== vendorId) throw notFound('Vendor');
   const { rows } = await pool.query<QuoteRow>(
     `${QUOTE_SELECT} WHERE q.vendor_id = $1 ORDER BY q.created_at DESC, q.id`,
     [vendorId],
@@ -114,7 +117,11 @@ export async function listVendorQuotes(vendorId: string): Promise<Quote[]> {
   return rows.map(toQuote);
 }
 
-export async function createQuote(requestId: string, body: CreateQuoteBody): Promise<Quote> {
+export async function createQuote(
+  requestId: string,
+  vendorId: string,
+  body: CreateQuoteBody,
+): Promise<Quote> {
   const notes = processVendorNotes(body.notes ?? null);
 
   const quoteId = await withTransaction(async (client) => {
@@ -126,9 +133,6 @@ export async function createQuote(requestId: string, body: CreateQuoteBody): Pro
     if (!request.rows[0]) throw notFound('Request');
     if (request.rows[0].status !== 'open') throw requestClosed();
 
-    const vendor = await client.query('SELECT 1 FROM vendors WHERE id = $1', [body.vendorId]);
-    if (!vendor.rowCount) throw notFound('Vendor');
-
     const { rows } = await client.query<{ id: string }>(
       `INSERT INTO quotes
          (request_id, vendor_id, system_kw, price_rupees, panel_brand, panel_watts, dcr_confirmed,
@@ -139,7 +143,7 @@ export async function createQuote(requestId: string, body: CreateQuoteBody): Pro
        RETURNING id`,
       [
         requestId,
-        body.vendorId,
+        vendorId,
         body.systemKw,
         body.priceRupees ?? null,
         body.panelBrand ?? null,
@@ -166,11 +170,12 @@ export async function createQuote(requestId: string, body: CreateQuoteBody): Pro
   return toQuote(rows[0]);
 }
 
-export async function acceptQuote(quoteId: string): Promise<ServiceRequest> {
+export async function acceptQuote(quoteId: string, user: AuthUser): Promise<ServiceRequest> {
   const requestId = await withTransaction(async (client) => {
     const quote = await client.query<{ request_id: string }>(
-      'SELECT request_id FROM quotes WHERE id = $1',
-      [quoteId],
+      `SELECT q.request_id FROM quotes q JOIN service_requests r ON r.id = q.request_id
+       WHERE q.id = $1 AND r.user_id = $2`,
+      [quoteId, user.id],
     );
     if (!quote.rows[0]) throw notFound('Quote');
     const { request_id: id } = quote.rows[0];

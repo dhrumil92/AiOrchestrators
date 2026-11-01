@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { db, useDB } from '../../lib/storage.js';
-import { acceptedQuoteFor, currentVendor, isMyQuote, unreadCount, vendorStats } from '../../lib/domain.js';
+import { currentVendor, isMyQuote, unreadCount, vendorStats } from '../../lib/domain.js';
 import { useApp } from '../../AppContext.jsx';
 import { useToast } from '../ui/Toast.jsx';
 import { Badge } from './common.jsx';
@@ -33,7 +33,7 @@ export default function VendorDashboard({ active }) {
   }, [v?.id]);
 
   const openQuote = useCallback(reqId => {
-    if (acceptedQuoteFor(reqId)) return toast('This request has already been awarded.', 'info');
+    if (db.requests().find(r => r.id === reqId)?.status === 'closed') return toast('This request has already been awarded.', 'info');
     if (db.quotes().some(q => q.requestId === reqId && isMyQuote(q, v))) return toast('You have already sent a quote for this request.', 'info');
     setQuoteFor(reqId);
   }, [toast, v?.id]);

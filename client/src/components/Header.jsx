@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
-import { db } from '../lib/storage.js';
+import { signOut } from '../lib/storage.js';
 import { useApp } from '../AppContext.jsx';
 import { Icon } from './ui/bits.jsx';
 
@@ -36,13 +36,7 @@ export default function Header({ tab, setTab, settingsOpen, setSettingsOpen }) {
     if (settingsOpen) api.health().then(setHealth).catch(() => setHealth(null));
   }, [settingsOpen]);
 
-  const vendors = db.vendorList();
-  const asVendor = vendorId => {
-    const v = vendors.find(x => x.id === vendorId);
-    if (v) db.saveSession({ role: 'vendor', name: v.name, vendorId: v.id, profile: {}, loginTime: new Date().toISOString() });
-  };
-  const asHousehold = () => db.saveSession({ role: 'household', name: 'Meena Patel', profile: { name: 'Meena Patel' }, loginTime: new Date().toISOString() });
-  const logout = () => { setSettingsOpen(false); db.clearSession(); };
+  const logout = () => { setSettingsOpen(false); signOut(); };
   const tabs = [
     !isVendor && { id: 'household', icon: '🏠', label: 'I Need Solar' },
     isVendor && { id: 'vendor', icon: '🔧', label: 'Vendor Dashboard' },
@@ -62,15 +56,10 @@ export default function Header({ tab, setTab, settingsOpen, setSettingsOpen }) {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <div className="flex rounded-full border border-gray-200 bg-gray-50 p-0.5 text-xs font-semibold" role="group" aria-label="Demo role">
-              <button onClick={asHousehold} aria-pressed={!isVendor} className={`px-3 py-1 rounded-full ${!isVendor ? 'bg-green-600 text-white' : 'text-gray-600'}`}>Household</button>
-              <button onClick={() => asVendor(session.vendorId || vendors[0]?.id)} aria-pressed={isVendor} className={`px-3 py-1 rounded-full ${isVendor ? 'bg-green-600 text-white' : 'text-gray-600'}`}>Vendor</button>
+            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full pl-2 pr-3 py-1">
+              <span className="text-base" aria-hidden="true">{isVendor ? '🔧' : '🏠'}</span>
+              <span className="text-gray-800 text-xs font-semibold max-w-[110px] sm:max-w-[180px] truncate">{session.name}</span>
             </div>
-            {isVendor && (
-              <select value={session.vendorId} onChange={e => asVendor(e.target.value)} aria-label="Vendor" className="hidden sm:block max-w-[170px] border border-gray-200 rounded-full px-2 py-1 text-xs bg-white">
-                {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-              </select>
-            )}
             <div className="subsidy-badge hidden xl:block text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-sm">✅ Subsidy up to ₹78,000</div>
             <button ref={btnRef} onClick={() => setSettingsOpen(o => !o)} aria-haspopup="dialog" aria-expanded={settingsOpen} title="Settings" aria-label="Settings"
               className="w-9 h-9 rounded-full border border-gray-200 bg-white hover:bg-green-50 hover:border-green-300 text-gray-600 hover:text-green-700 flex items-center justify-center transition">

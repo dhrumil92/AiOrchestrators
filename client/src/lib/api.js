@@ -1,6 +1,4 @@
 // All server calls. Types for every request and response are in shared/api.ts.
-export { DEMO_REQUEST_ID } from '../../../shared/api.ts';
-
 export class ApiError extends Error {
   constructor(message, code, status) {
     super(message);
@@ -29,10 +27,13 @@ const form = fields => {
 };
 
 export const api = {
+  me: () => call('/auth/me'),
+  signup: body => call('/auth/signup', json('POST', body)),
+  login: body => call('/auth/login', json('POST', body)),
+  logout: () => call('/auth/logout', { method: 'POST' }),
   health: () => call('/health'),
   rules: () => call('/rules'),
   calculator: (kw, monthlyUnits) => call(`/calculator?kw=${kw}&monthlyUnits=${monthlyUnits}`),
-  vendors: () => call('/vendors'),
   requests: () => call('/requests'),
   request: id => call(`/requests/${id}`),
   createRequest: body => call('/requests', json('POST', body)),

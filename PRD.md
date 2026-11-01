@@ -72,9 +72,9 @@ This is the team's main differentiator.
 
 **Removed:** free-text AI chat, because an LLM answering freely could produce numbers the rules say it must not. The AI tab answers from saved request data instead.
 
-**Out of scope:** full login, reading quotes from uploaded PDFs, payments, notifications, translated fixed UI labels, state top-up subsidies, and systems that already received a subsidy.
+**Out of scope:** email verification, password reset, reading quotes from uploaded PDFs, payments, notifications, translated fixed UI labels, state top-up subsidies, and systems that already received a subsidy.
 
-Use a role switcher for household and vendor views.
+Households and vendors use separate accounts. See `docs/ARCHITECTURE.md` section 9 for who can see what.
 
 ## 8. Seed data
 Seed 6 vendors around Vadodara, 1 open request for Meena, and 3 quotes. All seed data is fictional and labelled as sample data in the app.

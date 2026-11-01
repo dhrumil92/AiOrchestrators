@@ -17,10 +17,10 @@ Vite forwards `/api` calls to the server on port 4000. Use Chrome or Edge for vo
 
 ## Where data lives
 
-- **Server, in PostgreSQL:** vendors, requests, photos, quotes, accepted quotes.
+- **Server, in PostgreSQL:** accounts, vendors, requests, photos, quotes, accepted quotes.
 - **Server, calculated:** size, subsidy, savings, payback, ranking. The client never calculates these.
 - **Server, AI:** terrace review, voice, explanations. API keys stay on the server.
-- **Browser only:** demo session, vendor catalogue, reviews, install stages, vendor profile. These are prototype extras with no server tables.
+- **Browser only:** vendor catalogue, reviews, install stages, vendor profile. These are prototype extras with no server tables.
 
 ## Structure
 
@@ -36,8 +36,8 @@ src/
     recorder.js   microphone recording
     utils.js      formatting
   components/
-    Header.jsx            role switch, vendor picker, status panel
-    login/                landing page, demo sign-in
+    Header.jsx            account name, logout, status panel
+    login/                landing page, sign up and log in
     household/            request form, solar plan, quote comparison, charts
     vendor/               dashboard, enquiries map, quote form, installations and extras
     ai/AiAdvisor.jsx      quick actions and calculator, answered by the server

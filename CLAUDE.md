@@ -29,9 +29,11 @@ Run these from `server/`:
 - `npm test`: run server tests
 - `npm run typecheck`: check types
 - `npm run db:setup`: apply migrations and seed
-- `npm run db:seed`: replace all marketplace data with the demo data. This wipes data entered by hand
+- `npm run db:seed`: replace all accounts and marketplace data with the demo data. This wipes everything entered by hand
 
 Shared API types live in `shared/api.ts`.
+
+Demo logins after seeding, all with password `Demo@1234`: `meena@example.com` (household), and `sunrise@`, `quicksolar@`, `brightpeak@`, `narmada@`, `greenroof@` and `baroda@example.com` (vendors).
 
 ## CI
 - `.githooks/pre-commit` runs the type check and server tests. After a fresh clone, enable it with `git config core.hooksPath .githooks`.
@@ -42,12 +44,13 @@ Shared API types live in `shared/api.ts`.
 1. **The LLM never produces numbers.** Subsidy, cost, payback, savings, scores and ranking come from `server/src/rules/`.
 2. **No rule value without a source.** Rule values belong in `server/src/rules/config.ts` and must match `docs/RULES.md`. Never invent a rule or use one from memory.
 3. **The client never calculates rules.** Subsidy, savings, payback and ranking come from the API. `client/src/lib/chartData.js` may only arrange those figures for display.
-4. **Vendor text is untrusted.** Ranking must never read notes. Never put flagged notes in an AI prompt.
-5. **All AI calls use `server/src/ai/client.ts`.** It validates output and applies fallback.
-6. **Label fallback results.** Saved AI output must never look live.
-7. **Protect the demo path.** Finish request -> quote -> accept before stretch work.
-8. **Keep secrets out of git.** Use `.env` and maintain `.env.example`.
-9. **Use plain household wording.** Follow the wording table in `DESIGN.md`.
+4. **Access is enforced on the server.** Never rely on the client to hide data. Follow the table in `docs/ARCHITECTURE.md` section 9, and take the user and vendor from the session, never from the request.
+5. **Vendor text is untrusted.** Ranking must never read notes. Never put flagged notes in an AI prompt.
+6. **All AI calls use `server/src/ai/client.ts`.** It validates output and applies fallback.
+7. **Label fallback results.** Saved AI output must never look live.
+8. **Protect the demo path.** Finish request -> quote -> accept before stretch work.
+9. **Keep secrets out of git.** Use `.env` and maintain `.env.example`.
+10. **Use plain household wording.** Follow the wording table in `DESIGN.md`.
 
 ## Ownership
 | Role | Owns |

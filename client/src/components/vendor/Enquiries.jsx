@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { db, useDB } from '../../lib/storage.js';
 import { isMyQuote } from '../../lib/domain.js';
-import { inr, maskName, timeAgo } from '../../lib/utils.js';
+import { inr, timeAgo } from '../../lib/utils.js';
 import { EmptyState } from '../ui/bits.jsx';
 import LeafletMap from '../shared/LeafletMap.jsx';
 import { Chip, SectionHead } from './common.jsx';
@@ -28,14 +28,13 @@ function VendorMap({ v, active, onQuote, mapRef }) {
         html: `<div style="background:${awarded ? '#9ca3af' : 'linear-gradient(135deg,#16a34a,#ca8a04)'};color:white;border-radius:50% 50% 50% 0;padding:6px 8px;font-size:12px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.3);white-space:nowrap;">${awarded ? '✔ Awarded' : '☀️ Open'}</div>`,
         iconSize: [84, 34], className: '',
       });
-      const n = all.filter(q => q.requestId === req.id).length;
       const mine = all.find(q => q.requestId === req.id && isMyQuote(q, v));
       const box = document.createElement('div');
       box.style.minWidth = '200px';
       box.innerHTML = `<b>📍 ${esc(req.addressText || 'Address not given')}</b><br/>
         <div style="margin:6px 0;display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;">
           <span>💡 ${req.monthlyUnits} units a month</span><span>💰 Budget: ${inr(req.budgetRupees)}</span>
-          ${req.usableAreaSqm ? `<span>🏠 Terrace: ${req.usableAreaSqm} sq m</span>` : ''}<span>📑 Quotes: ${n}</span>
+          ${req.usableAreaSqm ? `<span>🏠 Terrace: ${req.usableAreaSqm} sq m</span>` : ''}
         </div>`;
       if (mine && !awarded) {
         box.insertAdjacentHTML('beforeend', `<div style="background:#fefce8;color:#854d0e;border:1px solid #fde68a;padding:6px 10px;border-radius:8px;font-weight:600;font-size:12px;text-align:center;margin-top:4px;">✓ You quoted ${inr(mine.priceRupees)}</div>`);
@@ -66,7 +65,9 @@ export default function Enquiries({ v, active, onQuote, show }) {
   const all = db.quotes(), requests = db.requests();
   const info = [...requests].reverse().map(req => {
     const quotes = all.filter(q => q.requestId === req.id);
-    return { req, quotes, acc: quotes.find(q => q.status === 'accepted'), mine: quotes.find(q => isMyQuote(q, v)) };
+    // Vendors receive only their own quotes, so a closed request without a win has no accepted quote here.
+    const acc = req.status === 'closed' ? (quotes.find(q => q.status === 'accepted') || { id: null }) : undefined;
+    return { req, quotes, acc, mine: quotes.find(q => isMyQuote(q, v)) };
   });
   const list = info.filter(i => filter === 'all' || (filter === 'new' && !i.acc && !i.mine) || (filter === 'quoted' && i.mine) || (filter === 'closed' && i.acc));
 
@@ -87,7 +88,7 @@ export default function Enquiries({ v, active, onQuote, show }) {
       <div className="space-y-4">
         {!requests.length ? <EmptyState icon="📭" title="No household enquiries yet" text="New solar requests from households will appear here as soon as they are posted." />
           : !list.length ? <EmptyState icon="🔍" title="Nothing here" text="No enquiries match this filter." />
-          : list.map(({ req, quotes, acc, mine }) => {
+          : list.map(({ req, acc, mine }) => {
             const iWon = acc && mine && acc.id === mine.id;
             return (
               <div key={req.id} className={`vcard bg-white rounded-2xl border border-gray-100 shadow-sm p-5 ${acc && !iWon ? 'opacity-70' : ''}`}>
@@ -95,14 +96,13 @@ export default function Enquiries({ v, active, onQuote, show }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center font-bold text-green-700 text-sm" aria-hidden="true">{req.householdName[0] || '?'}</div>
-                      <span className="font-bold text-gray-800">{iWon ? req.householdName : maskName(req.householdName)}</span>
+                      <span className="font-bold text-gray-800">{req.householdName}</span>
                       <span className="text-xs text-gray-500">{timeAgo(req.createdAt)}</span>
-                      <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full font-semibold">{quotes.length} quote{quotes.length !== 1 ? 's' : ''}</span>
                       {iWon ? <span className="text-xs px-2.5 py-1 bg-green-600 text-white rounded-full font-semibold">🏆 You won this job</span>
                         : acc ? <span className="text-xs px-2.5 py-1 bg-gray-100 text-gray-500 rounded-full font-semibold">Awarded to another vendor</span>
                         : mine ? <span className="text-xs px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-full font-semibold">You quoted {inr(mine.priceRupees)}</span> : null}
                     </div>
-                    <p className="text-sm text-gray-600 mb-3">📍 {req.addressText || 'Address not given'}</p>
+                    <p className="text-sm text-gray-600 mb-3">📍 {req.addressText || 'Area not given'}{iWon && req.contactPhone && <> · 📞 <a className="text-green-700 font-semibold" href={`tel:${req.contactPhone}`}>{req.contactPhone}</a></>}{!iWon && <span className="text-gray-500"> · Full address and phone shared if your quote is accepted</span>}</p>
                     <div className="flex flex-wrap gap-2">
                       <span className="bg-yellow-50 text-yellow-800 text-xs px-3 py-1.5 rounded-full font-semibold">💡 {req.monthlyUnits} units a month</span>
                       <span className="bg-green-50 text-green-700 text-xs px-3 py-1.5 rounded-full font-semibold">💰 Budget: {inr(req.budgetRupees)}</span>

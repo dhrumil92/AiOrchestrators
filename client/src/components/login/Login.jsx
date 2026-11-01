@@ -1,58 +1,73 @@
 import { useMemo, useState } from 'react';
-import { db, useDB } from '../../lib/storage.js';
+import { api } from '../../lib/api.js';
+import { signIn } from '../../lib/storage.js';
+import { EMAIL_RE } from '../../lib/utils.js';
 import { useToast } from '../ui/Toast.jsx';
 import Landing from './Landing.jsx';
 import { HouseholdShowcase, VendorShowcase } from './Showcase.jsx';
 
-// The demo has no real login: pick a household name, or one of the vendors on the server.
-function ProfileStep({ role, initialName, onBack }) {
-  useDB();
+function AuthStep({ role, initialName, onBack }) {
   const toast = useToast();
   const isHH = role === 'household';
-  const vendors = db.vendorList();
-  const [name, setName] = useState(initialName || 'Meena Patel');
-  const [vendorId, setVendorId] = useState('');
+  const [mode, setMode] = useState('signup');
+  const [f, setF] = useState({ name: initialName || '', city: '', email: '', password: '' });
+  const [busy, setBusy] = useState(false);
+  const set = k => e => setF(s => ({ ...s, [k]: e.target.value }));
+  const signingUp = mode === 'signup';
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
-    const loginTime = new Date().toISOString();
-    if (isHH) {
-      if (!name.trim()) return toast('Please enter your name.', 'error');
-      return db.saveSession({ role, name: name.trim(), profile: { name: name.trim() }, loginTime });
-    }
-    const v = vendors.find(x => x.id === (vendorId || vendors[0]?.id));
-    if (!v) return toast('No vendors found. Is the server running and seeded?', 'error');
-    db.saveSession({ role, name: v.name, vendorId: v.id, profile: {}, loginTime });
+    const name = f.name.trim(), city = f.city.trim(), email = f.email.trim();
+    if (!EMAIL_RE.test(email)) return toast('Enter a valid email address.', 'error');
+    if (signingUp) {
+      if (!name) return toast(isHH ? 'Please enter your name.' : 'Please enter your company name.', 'error');
+      if (!isHH && !city) return toast('Please enter your city.', 'error');
+      if (f.password.length < 8) return toast('Use at least 8 characters for your password.', 'error');
+    } else if (!f.password) return toast('Please enter your password.', 'error');
+    setBusy(true);
+    try {
+      signIn(signingUp
+        ? await api.signup({ role, name, email, password: f.password, ...(isHH ? {} : { city }) })
+        : await api.login({ email, password: f.password }));
+    } catch (err) {
+      if (err.code === 'EMAIL_TAKEN') setMode('login');
+      setF(s => ({ ...s, password: '' }));
+      toast(err.code === 'EMAIL_TAKEN' ? 'That email already has an account. Please log in.' : err.message, 'error');
+    } finally { setBusy(false); }
   }
 
-  const label = isHH ? 'text-amber-700' : 'text-green-700';
-  const field = `w-full text-gray-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:bg-white transition ${isHH ? 'bg-amber-50/60 border border-amber-200' : 'bg-green-50/50 border border-green-200'}`;
+  const label = `${isHH ? 'text-amber-700' : 'text-green-700'} text-xs font-bold uppercase tracking-widest mb-1.5 block`;
+  const field = `w-full text-gray-800 placeholder-gray-400 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:bg-white transition ${isHH ? 'bg-amber-50/60 border border-amber-200' : 'bg-green-50/50 border border-green-200'}`;
+  const tab = on => `flex-1 py-2 rounded-lg text-sm font-bold transition ${on ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`;
   return (
     <div className="relative w-full max-w-6xl bounce-in my-auto">
       <div className="grid gap-6 items-start lg:grid-cols-[1.25fr_1fr]">
         <div>{isHH ? <HouseholdShowcase /> : <VendorShowcase />}</div>
         <form onSubmit={submit} className="order-first lg:order-none bg-white border border-amber-100 rounded-3xl p-7 shadow-xl shadow-amber-200/50 lg:sticky lg:top-4" noValidate>
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-3 mb-5">
             <button type="button" onClick={onBack} aria-label="Back" className="text-gray-500 hover:text-gray-800 text-2xl leading-none transition">←</button>
-            <div>
-              <h2 className="text-gray-800 font-extrabold text-xl">{isHH ? '🏠 Household' : '🔧 Vendor'}</h2>
-              <p className="text-gray-500 text-xs mt-0.5">Demo sign-in. You can switch role from the top bar at any time.</p>
-            </div>
+            <h2 className="text-gray-800 font-extrabold text-xl">{isHH ? '🏠 Household account' : '🔧 Vendor account'}</h2>
           </div>
-          {isHH ? (
-            <div>
-              <label htmlFor="p-name" className={`${label} text-xs font-bold uppercase tracking-widest mb-1.5 block`}>👤 Your name</label>
-              <input id="p-name" value={name} onChange={e => setName(e.target.value)} className={field} autoComplete="name" />
-            </div>
-          ) : (
-            <div>
-              <label htmlFor="p-vendor" className={`${label} text-xs font-bold uppercase tracking-widest mb-1.5 block`}>🏪 Sign in as</label>
-              <select id="p-vendor" value={vendorId} onChange={e => setVendorId(e.target.value)} className={field}>
-                {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-              </select>
-            </div>
-          )}
-          <button type="submit" className="cta-primary mt-6 w-full py-3.5 rounded-2xl font-extrabold text-white text-base">Enter the App →</button>
+          <div className="flex gap-1 rounded-xl bg-gray-100 p-1 mb-5" role="group" aria-label="Log in or sign up">
+            <button type="button" onClick={() => setMode('signup')} aria-pressed={signingUp} className={tab(signingUp)}>Sign up</button>
+            <button type="button" onClick={() => setMode('login')} aria-pressed={!signingUp} className={tab(!signingUp)}>Log in</button>
+          </div>
+          <div className="space-y-4">
+            {signingUp && (
+              <div><label htmlFor="a-name" className={label}>{isHH ? 'Your name' : 'Company name'}</label>
+                <input id="a-name" value={f.name} onChange={set('name')} autoComplete={isHH ? 'name' : 'organization'} className={field} /></div>
+            )}
+            {signingUp && !isHH && (
+              <div><label htmlFor="a-city" className={label}>City</label>
+                <input id="a-city" value={f.city} onChange={set('city')} autoComplete="address-level2" className={field} /></div>
+            )}
+            <div><label htmlFor="a-email" className={label}>Email</label>
+              <input id="a-email" type="email" value={f.email} onChange={set('email')} autoComplete="email" className={field} /></div>
+            <div><label htmlFor="a-password" className={label}>Password</label>
+              <input id="a-password" type="password" value={f.password} onChange={set('password')} autoComplete={signingUp ? 'new-password' : 'current-password'} className={field} />
+              {signingUp && <p className="text-xs text-gray-500 mt-1">At least 8 characters</p>}</div>
+          </div>
+          <button type="submit" disabled={busy} className="cta-primary mt-6 w-full py-3.5 rounded-2xl font-extrabold text-white text-base disabled:opacity-60">{busy ? 'Please wait…' : signingUp ? 'Create account →' : 'Log in →'}</button>
         </form>
       </div>
     </div>
@@ -76,7 +91,7 @@ export default function Login() {
         ))}
       </div>
       {step
-        ? <ProfileStep key={step} role={step} initialName={name} onBack={() => setStep(null)} />
+        ? <AuthStep key={step} role={step} initialName={name} onBack={() => setStep(null)} />
         : <Landing name={name} setName={setName} onPick={setStep} />}
     </div>
   );

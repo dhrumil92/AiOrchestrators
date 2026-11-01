@@ -38,7 +38,3 @@ export function createLocalStorage(root: string): FileStorage {
 }
 
 export const storage = createLocalStorage(UPLOADS_DIR);
-
-export function publicUrl(key: string): string {
-  return `http://localhost:${process.env.PORT ?? 4000}/uploads/${key}`;
-}

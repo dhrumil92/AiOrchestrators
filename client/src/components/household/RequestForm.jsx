@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import L from 'leaflet';
 import { api } from '../../lib/api.js';
-import { db, refreshMarket } from '../../lib/storage.js';
+import { refreshMarket } from '../../lib/storage.js';
 import { startRecording } from '../../lib/recorder.js';
 import { useToast } from '../ui/Toast.jsx';
 import LeafletMap, { pinIcon } from '../shared/LeafletMap.jsx';
@@ -13,7 +13,7 @@ const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 export default function RequestForm({ profile, active, onPosted }) {
   const toast = useToast();
-  const blank = () => ({ name: profile.name || '', address: '', units: '', budget: '', area: '' });
+  const blank = () => ({ name: profile.name || '', phone: '', address: '', units: '', budget: '', area: '' });
   const [f, setF] = useState(blank);
   const [language, setLanguage] = useState('hi');
   const [pin, setPin] = useState(null);           // { lat, lng }
@@ -85,12 +85,11 @@ export default function RequestForm({ profile, active, onPosted }) {
     setBusy(true);
     try {
       const req = await api.createRequest({
-        householdName: name, addressText: address, latitude: +pin.lat.toFixed(6), longitude: +pin.lng.toFixed(6),
+        householdName: name, addressText: address, ...(f.phone.trim() ? { phone: f.phone.trim() } : {}), latitude: +pin.lat.toFixed(6), longitude: +pin.lng.toFixed(6),
         monthlyUnits: Math.round(units), budgetRupees: Math.round(budget), preferredLanguage: language,
         ...(f.area !== '' ? { usableAreaSqm: Number(f.area) } : {}),
       });
       if (photo) await api.uploadPhoto(req.id, photo.file);
-      db.addMyRequest(req.id);
       await refreshMarket();
       toast('🎉 Request posted! Vendors will quote soon.', 'success');
       setF(blank()); setPhoto(null); setTranscript('');
@@ -126,7 +125,8 @@ export default function RequestForm({ profile, active, onPosted }) {
 
       <form onSubmit={submit} noValidate className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
         <div><label htmlFor="h-name" className={labelCls}>Full Name *</label><input id="h-name" value={f.name} onChange={set('name')} placeholder="e.g. Ravi Kumar" className={inputCls} /></div>
-        <div><label htmlFor="h-address" className={labelCls}>Address *</label><input id="h-address" value={f.address} onChange={set('address')} placeholder="House no., street, city" className={inputCls} /></div>
+        <div><label htmlFor="h-phone" className={labelCls}>Phone</label><input id="h-phone" type="tel" value={f.phone} onChange={set('phone')} placeholder="Shared only with the vendor you accept" className={inputCls} /></div>
+        <div className="md:col-span-2"><label htmlFor="h-address" className={labelCls}>Address *</label><input id="h-address" value={f.address} onChange={set('address')} placeholder="House no., street, city" className={inputCls} /><p className="text-xs text-gray-500 mt-1">Put the city last. Vendors see only the city until you accept a quote.</p></div>
         <div>
           <label htmlFor="h-units" className={labelCls}>Monthly Electricity Use (units) *</label>
           <input id="h-units" type="number" min="1" value={f.units} onChange={set('units')} placeholder="e.g. 300" className={inputCls} />

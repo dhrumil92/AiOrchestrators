@@ -72,7 +72,10 @@ Base path: `/api`. JSON unless stated. Errors use `{ "error": { "code": "...", "
 | Method | Path | Purpose | Screen |
 |---|---|---|---|
 | GET | `/health` | Status of database and AI configuration | Internal |
-| GET | `/vendors` | List vendors for role switcher | V1 |
+| POST | `/auth/signup` | Create a household or vendor account and log in | Login |
+| POST | `/auth/login` | Log in | Login |
+| POST | `/auth/logout` | End the session on the server | Header |
+| GET | `/auth/me` | Current account | All |
 | POST | `/voice/transcribe` | Multipart `audio`, `language`. Returns transcript and extracted fields | H1 |
 | POST | `/requests` | Create request | H1 |
 | GET | `/requests?status=open` | Requests for vendor map | V1 |
@@ -87,6 +90,7 @@ Base path: `/api`. JSON unless stated. Errors use `{ "error": { "code": "...", "
 | POST | `/quotes/:id/accept` | Accept quote and close request | H3, H4 |
 | GET | `/vendors/:id/quotes` | Vendor's quotes and statuses | V3 |
 | GET | `/rules` | Rules, formulas, assumptions and source links | All |
+| GET | `/requests/:id/photo` | Latest terrace photo, for anyone allowed to view the request | H2, V2 |
 | GET | `/calculator?kw=&monthlyUnits=` | Example subsidy, cost and payback for the calculator, using the scheme benchmark | AI tab |
 | GET | `/jobs/:id` | Job status (stretch) | H2 |
 
@@ -180,10 +184,25 @@ Saved responses live in `server/src/ai/fixtures/` for the demo request.
 
 Saved or template results always show a small "saved example" or "basic explanation" label. Never present them as live.
 
-## 9. Security and privacy basics
+## 9. Accounts and access
+Accounts use email and password. Passwords are hashed with scrypt. A session is a random token in an HttpOnly, SameSite=Strict cookie, marked Secure in production, and only its hash is stored. Sessions last 7 days and logout deletes them on the server. Ten failed logins for one email and address lock that pair for 15 minutes.
+
+Only `/health`, `/rules` and `/auth/*` work without a login. Access is enforced on the server:
+
+| Data | Household | Vendor |
+|---|---|---|
+| Requests | Own only | Open requests, plus any it quoted on |
+| Name, address, map pin, phone | Own, in full | Masked name, city only, location rounded to about 1 km, no phone. Full details only after its quote is accepted |
+| Quotes | All quotes on own requests | Own quotes only |
+| Comparison, accept, edit, photo upload | Own requests | Refused |
+| Terrace photo | Own requests | Requests it may view |
+
+Another user's record returns 404, the same as a missing record, so ids cannot be probed. A quote's vendor always comes from the session, never from the request body. Photos are served through the API, not from a public folder.
+
+Limits: email is not verified, and there is no password reset yet.
+
+## 10. Security and privacy basics
 - Keep API keys in `.env` on the server only.
 - Validate all input, including file type and size.
 - Use parameterised queries.
 - Store photos under generated names and never trust file names.
-- The role switcher is for demo only. Production requires login and ownership checks, as covered in `docs/SCALING.md`.
-- **Demo limitation:** the API has no roles, so vendors can see the exact pin. Production must return approximate location to vendors and share the household phone number only after a quote is accepted.

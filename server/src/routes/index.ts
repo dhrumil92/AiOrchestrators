@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import type { Vendor } from '../../../shared/api.js';
 import { transcribeAndExtract } from '../ai/index.js';
 import { pool } from '../db/pool.js';
 import { calculateExample } from '../rules/calculations.js';
 import { RULE_CATALOG } from '../rules/catalog.js';
+import { currentUser, loadUser, requireAuth, requireRole } from '../auth/middleware.js';
 import { acceptQuote, listVendorQuotes } from '../services/quotes.js';
+import { authRouter } from './auth.js';
 import { requestsRouter } from './requests.js';
 import {
   audioFile,
@@ -40,26 +41,23 @@ apiRouter.get('/rules', (_req, res) => {
   res.json(RULE_CATALOG);
 });
 
+apiRouter.use(loadUser);
+apiRouter.use('/auth', authRouter);
+
+// Everything below this line needs a logged-in account.
+apiRouter.use(requireAuth);
+
 apiRouter.get('/calculator', (req, res) => {
   const { kw, monthlyUnits } = calculatorQuery.parse(req.query);
   res.json(calculateExample(kw, monthlyUnits));
 });
 
-apiRouter.get('/vendors', async (_req, res) => {
-  const { rows } = await pool.query<Vendor>(
-    `SELECT id, name, city, latitude, longitude,
-            service_radius_km AS "serviceRadiusKm", is_sample AS "isSample"
-     FROM vendors ORDER BY name, id`,
-  );
-  res.json(rows);
-});
-
 apiRouter.get('/vendors/:id/quotes', async (req, res) => {
-  res.json(await listVendorQuotes(idParam.parse(req.params).id));
+  res.json(await listVendorQuotes(idParam.parse(req.params).id, currentUser(res)));
 });
 
-apiRouter.post('/quotes/:id/accept', async (req, res) => {
-  res.json(await acceptQuote(idParam.parse(req.params).id));
+apiRouter.post('/quotes/:id/accept', requireRole('household'), async (req, res) => {
+  res.json(await acceptQuote(idParam.parse(req.params).id, currentUser(res)));
 });
 
 apiRouter.post('/voice/transcribe', audioUpload, async (req, res) => {

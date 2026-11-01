@@ -41,8 +41,24 @@ export const updateRequestSchema = z
 
 export const listRequestsQuery = z.object({ status: z.enum(['open', 'closed']).optional() });
 
+const email = z.string().trim().toLowerCase().max(200).pipe(z.email());
+
+export const signupSchema = z
+  .object({
+    role: z.enum(['household', 'vendor']),
+    name: shortText,
+    email,
+    password: z.string().min(8, 'Use at least 8 characters').max(128),
+    city: shortText.optional(),
+  })
+  .refine((body) => body.role !== 'vendor' || body.city !== undefined, {
+    path: ['city'],
+    message: 'Enter your city',
+  });
+
+export const loginSchema = z.object({ email, password: z.string().min(1).max(128) });
+
 export const createQuoteSchema = z.object({
-  vendorId: z.guid(),
   systemKw: z.number().positive().max(MAX_KW),
   priceRupees: positiveInt.nullish(),
   panelBrand: shortText.nullish(),

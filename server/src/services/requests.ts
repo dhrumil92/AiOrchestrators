@@ -1,4 +1,5 @@
 import type {
+  AuthUser,
   AiSource,
   Confidence,
   CreateRequestBody,
@@ -18,7 +19,7 @@ import {
   calculateYearlySaving,
   monthlyGeneration,
 } from '../rules/calculations.js';
-import { publicUrl, storage } from '../storage/index.js';
+import { storage } from '../storage/index.js';
 import { HttpError, notFound } from './errors.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -50,6 +51,8 @@ const REQUEST_SELECT = `
 
 interface RequestRow {
   id: string;
+  user_id: string | null;
+  phone: string | null;
   household_name: string;
   latitude: number;
   longitude: number;
@@ -75,6 +78,7 @@ function toServiceRequest(row: RequestRow): ServiceRequest {
   return {
     id: row.id,
     householdName: row.household_name,
+    contactPhone: row.phone,
     latitude: row.latitude,
     longitude: row.longitude,
     addressText: row.address_text,
@@ -86,7 +90,7 @@ function toServiceRequest(row: RequestRow): ServiceRequest {
     preferredLanguage: row.preferred_language,
     status: row.status,
     acceptedQuoteId: row.accepted_quote_id,
-    photoUrl: row.storage_key === null ? null : publicUrl(row.storage_key),
+    photoUrl: row.storage_key === null ? null : `/api/requests/${row.id}/photo`,
     assessment:
       row.summary === null
         ? null
@@ -101,28 +105,104 @@ function toServiceRequest(row: RequestRow): ServiceRequest {
   };
 }
 
-export async function listRequests(status?: RequestStatus): Promise<ServiceRequest[]> {
-  const { rows } = await pool.query<RequestRow>(
-    `${REQUEST_SELECT} WHERE $1::text IS NULL OR r.status = $1 ORDER BY r.created_at DESC, r.id`,
-    [status ?? null],
-  );
-  return rows.map(toServiceRequest);
+const maskName = (name: string): string =>
+  name.split(/\s+/).map((word) => word[0] + '*'.repeat(Math.max(word.length - 1, 0))).join(' ');
+
+/** What a vendor sees before winning: enough to quote, not enough to find the household. */
+function toVendorView(request: ServiceRequest): ServiceRequest {
+  return {
+    ...request,
+    householdName: maskName(request.householdName),
+    contactPhone: null,
+    addressText: request.addressText?.split(',').at(-1)?.trim() ?? null,
+    latitude: Math.round(request.latitude * 100) / 100,
+    longitude: Math.round(request.longitude * 100) / 100,
+    acceptedQuoteId: null,
+  };
 }
 
-export async function getRequest(id: string): Promise<ServiceRequest> {
+async function wonRequestIds(vendorId: string): Promise<Set<string>> {
+  const { rows } = await pool.query<{ request_id: string }>(
+    `SELECT request_id FROM quotes WHERE vendor_id = $1 AND status = 'accepted'`,
+    [vendorId],
+  );
+  return new Set(rows.map((row) => row.request_id));
+}
+
+export async function listRequests(user: AuthUser, status?: RequestStatus): Promise<ServiceRequest[]> {
+  if (user.role === 'household') {
+    const { rows } = await pool.query<RequestRow>(
+      `${REQUEST_SELECT} WHERE r.user_id = $1 AND ($2::text IS NULL OR r.status = $2)
+       ORDER BY r.created_at DESC, r.id`,
+      [user.id, status ?? null],
+    );
+    return rows.map(toServiceRequest);
+  }
+
+  const { rows } = await pool.query<RequestRow>(
+    `${REQUEST_SELECT}
+     WHERE (r.status = 'open'
+            OR EXISTS (SELECT 1 FROM quotes q WHERE q.request_id = r.id AND q.vendor_id = $1))
+       AND ($2::text IS NULL OR r.status = $2)
+     ORDER BY r.created_at DESC, r.id`,
+    [user.vendorId, status ?? null],
+  );
+  const won = await wonRequestIds(user.vendorId!);
+  return rows.map(toServiceRequest).map((r) => (won.has(r.id) ? r : toVendorView(r)));
+}
+
+async function findRequest(id: string): Promise<RequestRow> {
   const { rows } = await pool.query<RequestRow>(`${REQUEST_SELECT} WHERE r.id = $1`, [id]);
   if (!rows[0]) throw notFound('Request');
-  return toServiceRequest(rows[0]);
+  return rows[0];
 }
 
-export async function createRequest(body: CreateRequestBody): Promise<ServiceRequest> {
+/** For internal use. Routes must check access first, and must not return this to a vendor. */
+export async function getRequest(id: string): Promise<ServiceRequest> {
+  return toServiceRequest(await findRequest(id));
+}
+
+/** Other people's requests look the same as missing ones, so ids cannot be probed. */
+export async function requireRequestOwner(id: string, user: AuthUser): Promise<void> {
+  const row = await findRequest(id);
+  if (row.user_id !== user.id) throw notFound('Request');
+}
+
+export async function viewRequest(id: string, user: AuthUser): Promise<ServiceRequest> {
+  const row = await findRequest(id);
+  if (user.role === 'household') {
+    if (row.user_id !== user.id) throw notFound('Request');
+    return toServiceRequest(row);
+  }
+  const { rows } = await pool.query<{ status: string }>(
+    'SELECT status FROM quotes WHERE request_id = $1 AND vendor_id = $2',
+    [id, user.vendorId],
+  );
+  if (row.status !== 'open' && !rows[0]) throw notFound('Request');
+  const request = toServiceRequest(row);
+  return rows[0]?.status === 'accepted' ? request : toVendorView(request);
+}
+
+export async function readPhoto(requestId: string, user: AuthUser) {
+  await viewRequest(requestId, user);
+  const { rows } = await pool.query<{ storage_key: string; content_type: string }>(
+    `SELECT storage_key, content_type FROM terrace_photos
+     WHERE request_id = $1 ORDER BY created_at DESC, id LIMIT 1`,
+    [requestId],
+  );
+  if (!rows[0]) throw notFound('Photo');
+  return { data: await storage.read(rows[0].storage_key), contentType: rows[0].content_type };
+}
+
+export async function createRequest(body: CreateRequestBody, user: AuthUser): Promise<ServiceRequest> {
   const { rows } = await pool.query<{ id: string }>(
     `INSERT INTO service_requests
-       (household_name, phone, latitude, longitude, address_text, monthly_units,
+       (user_id, household_name, phone, latitude, longitude, address_text, monthly_units,
         budget_rupees, usable_area_sqm, preferred_language)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING id`,
     [
+      user.id,
       body.householdName,
       body.phone ?? null,
       body.latitude,

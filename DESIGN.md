@@ -40,7 +40,7 @@ The built app uses a green and yellow theme with Tailwind, which replaced the te
 Use `frontend-design` for screen quality and `dataviz` for charts where available.
 
 ## 4. Navigation
-The top bar shows the product name and a **Household / Vendor** switch. A vendor dropdown appears in vendor mode. The language picker sits on the request form and on each solar plan, because language is saved per request.
+Visitors choose household or vendor on the landing page, then sign up or log in. The top bar shows the product name, account name and logout. The language picker sits on the request form and on each solar plan, because language is saved per request.
 
 ## 5. Household screens
 ### H1. Tell us about your home

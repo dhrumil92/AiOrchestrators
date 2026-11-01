@@ -2,22 +2,27 @@ import { copyFile, mkdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DEMO_REQUEST_ID } from '../../../shared/api.js';
+import { hashPassword } from '../auth/password.js';
 import { pool } from '../db/pool.js';
 import { processVendorNotes } from '../security/index.js';
 
 /** All seed data is fictional. Replaces all marketplace data in the database. */
+
+/** Shared by every demo account. Never use the seed on a real deployment. */
+const DEMO_PASSWORD = 'Demo@1234';
+const DEMO_HOUSEHOLD_EMAIL = 'meena@example.com';
 
 const serverDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const demoPhoto = path.resolve(serverDir, '..', 'demo-assets', 'terrage.jpg');
 const photoKey = 'demo/terrace.jpg';
 
 const vendors = [
-  ['aaaaaaaa-0000-4000-8000-000000000001', 'Sunrise Rooftop Co.', 22.3149, 73.1702],
-  ['aaaaaaaa-0000-4000-8000-000000000002', 'QuickSolar Traders', 22.2963, 73.1984],
-  ['aaaaaaaa-0000-4000-8000-000000000003', 'BrightPeak Energy', 22.3288, 73.2011],
-  ['aaaaaaaa-0000-4000-8000-000000000004', 'Narmada Solar Works', 22.2851, 73.1621],
-  ['aaaaaaaa-0000-4000-8000-000000000005', 'GreenRoof Gujarat', 22.3412, 73.1553],
-  ['aaaaaaaa-0000-4000-8000-000000000006', 'Baroda Sun Systems', 22.3027, 73.2196],
+  ['aaaaaaaa-0000-4000-8000-000000000001', 'Sunrise Rooftop Co.', 22.3149, 73.1702, 'sunrise@example.com'],
+  ['aaaaaaaa-0000-4000-8000-000000000002', 'QuickSolar Traders', 22.2963, 73.1984, 'quicksolar@example.com'],
+  ['aaaaaaaa-0000-4000-8000-000000000003', 'BrightPeak Energy', 22.3288, 73.2011, 'brightpeak@example.com'],
+  ['aaaaaaaa-0000-4000-8000-000000000004', 'Narmada Solar Works', 22.2851, 73.1621, 'narmada@example.com'],
+  ['aaaaaaaa-0000-4000-8000-000000000005', 'GreenRoof Gujarat', 22.3412, 73.1553, 'greenroof@example.com'],
+  ['aaaaaaaa-0000-4000-8000-000000000006', 'Baroda Sun Systems', 22.3027, 73.2196, 'baroda@example.com'],
 ] as const;
 
 const injectedNotes =
@@ -76,29 +81,44 @@ async function copyDemoPhoto(): Promise<number | null> {
 }
 
 async function seed(): Promise<void> {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('The seed wipes data and creates demo accounts, so it cannot run in production');
+  }
+  const passwordHash = await hashPassword(DEMO_PASSWORD);
   const photoSize = await copyDemoPhoto();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query(
-      'TRUNCATE ai_jobs, recommendations, photo_assessments, terrace_photos, quotes, service_requests, vendors CASCADE',
+      'TRUNCATE sessions, users, ai_jobs, recommendations, photo_assessments, terrace_photos, quotes, service_requests, vendors CASCADE',
     );
 
-    for (const [id, name, latitude, longitude] of vendors) {
+    for (const [id, name, latitude, longitude, email] of vendors) {
       await client.query(
         `INSERT INTO vendors (id, name, phone, city, latitude, longitude, is_sample)
          VALUES ($1, $2, $3, 'Vadodara', $4, $5, TRUE)`,
         [id, name, '+91 00000 00000', latitude, longitude],
       );
+      await client.query(
+        `INSERT INTO users (role, name, email, password_hash, vendor_id)
+         VALUES ('vendor', $1, $2, $3, $4)`,
+        [name, email, passwordHash, id],
+      );
     }
+
+    const household = await client.query<{ id: string }>(
+      `INSERT INTO users (role, name, email, password_hash)
+       VALUES ('household', 'Meena Patel', $1, $2) RETURNING id`,
+      [DEMO_HOUSEHOLD_EMAIL, passwordHash],
+    );
 
     await client.query(
       `INSERT INTO service_requests
-         (id, household_name, phone, latitude, longitude, address_text, monthly_units,
+         (id, user_id, household_name, phone, latitude, longitude, address_text, monthly_units,
           budget_rupees, usable_area_sqm, preferred_language, is_sample)
-       VALUES ($1, 'Meena Patel', '+91 00000 00000', 22.3119, 73.1723, 'Vadodara, Gujarat',
+       VALUES ($1, $2, 'Meena Patel', '+91 00000 00000', 22.3119, 73.1723, 'Vadodara, Gujarat',
                300, 150000, 30, 'gu', TRUE)`,
-      [DEMO_REQUEST_ID],
+      [DEMO_REQUEST_ID, household.rows[0].id],
     );
 
     if (photoSize !== null) {
@@ -127,7 +147,7 @@ async function seed(): Promise<void> {
     }
 
     await client.query('COMMIT');
-    console.log(`Seeded ${vendors.length} vendors, 1 request and ${quotes.length} quotes`);
+    console.log(`Seeded ${vendors.length} vendors, 1 request, ${quotes.length} quotes and demo accounts`);
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;

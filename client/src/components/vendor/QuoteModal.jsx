@@ -71,7 +71,7 @@ export default function QuoteModal({ v, requestId, onClose }) {
     setBusy(true);
     try {
       const quote = await api.createQuote(requestId, {
-        vendorId: v.id, systemKw: Number(f.systemKw), priceRupees: num(f.price), panelBrand: f.panelBrand.trim() || null, panelWatts: num(f.panelWatts),
+        systemKw: Number(f.systemKw), priceRupees: num(f.price), panelBrand: f.panelBrand.trim() || null, panelWatts: num(f.panelWatts),
         dcrConfirmed: f.dcr === '' ? null : f.dcr === 'yes', inverterBrand: f.inverterBrand.trim() || null, inverterKw: num(f.inverterKw),
         inverterWarrantyYears: num(f.inverterWarranty), panelWarrantyYears: num(f.panelWarranty), installDays: num(f.days), notes: f.notes.trim() || null,
       });

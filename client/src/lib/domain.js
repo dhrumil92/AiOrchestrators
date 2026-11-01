@@ -1,5 +1,5 @@
 import { db, refreshMarket } from './storage.js';
-import { DEMO_REQUEST_ID, api } from './api.js';
+import { api } from './api.js';
 import { normPhone, GSTIN_RE, EMAIL_RE, cityOf, inr, genId } from './utils.js';
 
 export const INSTALL_STAGES = ['Quote accepted', 'Site survey', 'Design & DISCOM approval', 'Installation', 'Net metering & commissioning', 'Completed'];
@@ -14,29 +14,23 @@ export const PRODUCT_CATS = {
 };
 
 // ---------- identity ----------
-// The demo has no real login. A household sees the seeded demo request plus any it posted in this
-// browser, and a vendor signs in as one of the vendors on the server.
 export function currentHousehold(session) {
   if (!session || session.role !== 'household') return null;
-  return { id: 'demo-household', name: session.name };
+  return { id: session.email, name: session.name };
 }
 export function currentVendor(session) {
   if (!session || session.role !== 'vendor') return null;
-  const server = db.vendorList().find(x => x.id === session.vendorId);
-  if (!server) return null;
-  const v = { id: server.id, phone: '', shop: server.name, contactName: server.name, email: '', gst: '', reg: '', area: server.city, years: '', address: '', about: '', ...(db.vendors()[server.id] || {}) };
-  v.displayName = server.name;
+  const id = session.vendorId;
+  const v = { id, phone: '', shop: session.name, contactName: session.name, email: session.email, gst: '', reg: '', area: '', years: '', address: '', about: '', ...(db.vendors()[id] || {}) };
+  v.displayName = session.name;
   return v;
 }
 
 // ---------- ownership ----------
 export const isMyQuote = (q, v) => !!v && q.vendorId === v.id;
 export const acceptedQuoteFor = (reqId, quotes = db.quotes()) => quotes.find(q => q.requestId === reqId && q.status === 'accepted');
-export const myRequests = h => {
-  if (!h) return [];
-  const mine = new Set([DEMO_REQUEST_ID, ...db.myRequestIds()]);
-  return db.requests().filter(r => mine.has(r.id));
-};
+/** The server returns only this household's requests. */
+export const myRequests = h => (h ? db.requests() : []);
 
 // ---------- verification ----------
 export function verificationChecks(v) {
@@ -54,7 +48,7 @@ export function verificationChecks(v) {
 export function vendorStats(v) {
   const reqs = db.requests(), all = db.quotes();
   const mine = all.filter(q => isMyQuote(q, v));
-  const awardedIds = new Set(all.filter(q => q.status === 'accepted').map(q => q.requestId));
+  const awardedIds = new Set(reqs.filter(r => r.status === 'closed').map(r => r.id));   // vendors only see their own quotes
   const openReqs = reqs.filter(r => r.status === 'open');
   const notQuoted = openReqs.filter(r => !mine.some(q => q.requestId === r.id));
   const won = mine.filter(q => q.status === 'accepted');

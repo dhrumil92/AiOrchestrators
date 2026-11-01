@@ -65,6 +65,7 @@ export default function Installations({ v, show }) {
                 <div>
                   <div className="font-bold text-gray-900">{req.householdName || 'Customer'}</div>
                   <div className="text-sm text-gray-500 mt-0.5">📍 {req.addressText || '—'}</div>
+                  {req.contactPhone && <a href={`tel:${req.contactPhone}`} className="text-sm text-green-700 font-semibold">📞 {req.contactPhone}</a>}
                 </div>
                 <div className="text-right">
                   <div className="text-xl font-extrabold text-gray-900">{inr(q.priceRupees)}</div>
