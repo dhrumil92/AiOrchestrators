@@ -12,6 +12,7 @@ Checked on 1 November 2026.
 | S3 | [GERC tariff schedule for DGVCL, MGVCL, PGVCL and UGVCL, effective 1 April 2026](https://gercin.org/viewdocument/dGFyaWZmc2NoZWR1bGVfcGRmXzE3ODYwOTcyMjFfNzk2NA==) | Read directly |
 | S4 | [Renewable Watch: amended guidelines, 9 July 2025](https://renewablewatch.in/2025/07/09/mnre-notifies-amended-guidelines-for-pm-surya-ghar-yojana/) and [SolarQuarter, 8 July 2025](https://solarquarter.com/2025/07/08/mnre-amends-pm-surya-ghar-yojana-to-simplify-cfa-process-for-residential-rooftop-solar-installations/) | Secondary coverage, summary via search. The MNRE notice itself was not read |
 | S5 | [SolarQuarter: scheme subsidy guidelines, 1 September 2026](https://solarquarter.com/2026/09/01/pm-surya-ghar-scheme-mnre-details-rooftop-solar-subsidy-guidelines-for-residential-consumers/) | Secondary source. Confirms the same rates and DCR rule |
+| S7 | Summary of the scheme rules supplied by the team, which cites the Press Information Bureau (PIB). Applicant rules, process steps and the vendor information list | Summary only. Not yet checked against S1 section by section |
 | S6 | [CSE publication on rooftop generation](https://www.cseindia.org/content/downloadreports/13022) and [PIB document](https://static.pib.gov.in/WriteReadData/specificdocs/documents/2022/apr/doc202242850101.pdf) | Summary only, via search results |
 
 **Known gaps**
@@ -162,3 +163,15 @@ Quote A wins. If no quote is recommendable, the app says so and lists what to as
 **Source:** S1 section 5(g). Benchmark is ₹50,000 per kW for the first 2 kW and ₹45,000 for the additional kW, set in February 2024.
 
 For 2.5 kW, benchmark cost is ₹1,22,500. Show price as a percentage of this: A 118%, B 102%, C 131%. Label it "compared with the scheme's 2024 benchmark". It is not a market price or a fair-price ruling.
+
+## 10. Eligibility check
+**Source:** S7. The app shows a quick guide only. The National Portal and the electricity company decide.
+
+| Question | Not eligible when | Source |
+|---|---|---|
+| Are you an Indian citizen? | No | S7 |
+| What kind of electricity connection does the home have? | Commercial, industrial or none. Only a home (residential) connection qualifies | S7 |
+| Will the rooftop system be connected to the grid? | No (off-grid) | S7, S1 5(e) |
+| Has this home already received the central subsidy? | Yes. An installation is eligible only once | S1 5(o) |
+
+All answers right gives "likely eligible" and the official next steps (register on the portal, DISCOM feasibility, registered vendor, install, net meter, commissioning, claim with bank details and a cancelled cheque). The app does not collect the consumer number, which belongs on the portal. It does not check vendor registration, so it never calls a vendor officially approved.

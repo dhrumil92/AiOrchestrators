@@ -76,7 +76,8 @@ Base path: `/api`. JSON unless stated. Errors use `{ "error": { "code": "...", "
 | POST | `/auth/login` | Log in | Login |
 | POST | `/auth/logout` | End the session on the server | Header |
 | GET | `/auth/me` | Current account | All |
-| POST | `/voice/transcribe` | Multipart `audio`, `language`. Returns transcript and extracted fields | H1 |
+| POST | `/eligibility` | Household only. Body: citizen, connection type, grid-connected, earlier subsidy. Returns `likely_eligible` or `not_eligible` with plain reasons and the official next steps. Saves nothing | H1 |
+| POST | `/voice/transcribe` | Multipart `audio`, `language`. Returns the transcript and suggested form fields (units, budget, terrace area in sq m, address, preferred kW, roof type, obstructions, other wishes), plus `missingFields` and `unclearFields`. It saves nothing: the household reviews the form and posts it. Audio is read from memory and never written to disk | H1 |
 | POST | `/requests` | Create request | H1 |
 | GET | `/requests?status=open` | Requests for vendor map | V1 |
 | GET | `/requests/:id` | Request, photo URL, assessment and status | H2, V2 |

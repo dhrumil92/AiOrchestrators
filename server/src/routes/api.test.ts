@@ -398,6 +398,7 @@ describe('access control', () => {
     ['post', '/api/requests'],
     ['post', `/api/quotes/${MISSING_ID}/accept`],
     ['post', '/api/voice/transcribe'],
+    ['post', '/api/eligibility'],
     ['get', '/api/calculator?kw=2&monthlyUnits=300'],
     ['get', `/api/vendors/${MISSING_ID}/quotes`],
   ] as const)('requires a login for %s %s', async (method, url) => {
@@ -742,7 +743,18 @@ describe('system endpoints', () => {
   it('accepts a voice upload and rejects a bad language', async () => {
     ai.transcribeAndExtract.mockResolvedValue({
       transcript: 'hello',
-      fields: { monthlyUnits: 300, budgetRupees: null, notes: null },
+      fields: {
+        monthlyUnits: 300,
+        budgetRupees: null,
+        roofAreaSqm: null,
+        location: null,
+        preferredKw: null,
+        roofType: null,
+        obstructions: [],
+        additionalRequirements: [],
+      },
+      missingFields: ['roofArea', 'location', 'budget', 'preferredKw'],
+      unclearFields: [],
       source: 'live',
     });
     const audio = { filename: '../clip.webm', contentType: 'audio/webm' };
@@ -759,6 +771,45 @@ describe('system endpoints', () => {
       .field('language', 'fr')
       .attach('audio', Buffer.from('audio'), audio)
       .expect(400);
+  });
+
+  it('checks eligibility for a household, rejects bad answers and refuses vendors', async () => {
+    const answers = { isIndianCitizen: true, connection: 'residential', gridConnected: true, receivedSubsidyBefore: false };
+    const ok = await household.post('/api/eligibility').send(answers).expect(200);
+    expect(ok.body.status).toBe('likely_eligible');
+    const no = await household.post('/api/eligibility').send({ ...answers, connection: 'commercial' }).expect(200);
+    expect(no.body).toMatchObject({ status: 'not_eligible', nextSteps: [] });
+    await household.post('/api/eligibility').send({ ...answers, connection: 'palace' }).expect(400);
+    await household.post('/api/eligibility').send({ isIndianCitizen: true }).expect(400);
+    const { agent } = await signup('vendor');
+    await agent.post('/api/eligibility').send(answers).expect(403);
+  });
+
+  it('rejects a voice upload that is not audio, is empty or has no file', async () => {
+    const send = (file: Buffer, contentType: string) =>
+      household.post('/api/voice/transcribe').field('language', 'en').attach('audio', file, { filename: 'x.bin', contentType });
+    await send(Buffer.from('hello'), 'text/plain').expect(400);
+    await send(Buffer.alloc(0), 'audio/webm').expect(400);
+    await household.post('/api/voice/transcribe').field('language', 'en').expect(400);
+    expect(ai.transcribeAndExtract).not.toHaveBeenCalled();
+  });
+
+  it('only suggests fields from a voice upload and never creates a request', async () => {
+    ai.transcribeAndExtract.mockResolvedValue({
+      transcript: 'my bill is 300 units',
+      fields: { monthlyUnits: 300, budgetRupees: 150000, roofAreaSqm: 46.45, location: 'Vadodara', preferredKw: null, roofType: null, obstructions: [], additionalRequirements: [] },
+      missingFields: ['preferredKw'],
+      unclearFields: [],
+      source: 'live',
+    });
+    const before = (await household.get('/api/requests').expect(200)).body.length;
+    const res = await household
+      .post('/api/voice/transcribe')
+      .field('language', 'en')
+      .attach('audio', Buffer.from('audio'), { filename: 'clip.webm', contentType: 'audio/webm' })
+      .expect(200);
+    expect(res.body.fields.monthlyUnits).toBe(300);
+    expect((await household.get('/api/requests').expect(200)).body).toHaveLength(before);
   });
 
   it('answers unknown paths in the error shape', async () => {

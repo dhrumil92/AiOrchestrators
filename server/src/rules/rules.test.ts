@@ -9,6 +9,7 @@ import {
   calculateYearlySaving,
   energyChargeRupees,
 } from './calculations.js';
+import { checkEligibility } from './eligibility.js';
 import { rankQuotes } from './ranking.js';
 
 const quoteA: QuoteFacts = {
@@ -172,5 +173,42 @@ describe('calculator example', () => {
       yearlySavingRupees: 14_520,
     });
     expect(result.paybackYears).toBeCloseTo(3.7, 1);
+  });
+});
+
+describe('eligibility check', () => {
+  const eligible = {
+    isIndianCitizen: true,
+    connection: 'residential',
+    gridConnected: true,
+    receivedSubsidyBefore: false,
+  } as const;
+
+  it('says a citizen with a home connection and a grid system is likely eligible', () => {
+    const result = checkEligibility(eligible);
+    expect(result.status).toBe('likely_eligible');
+    expect(result.reasons).toEqual([]);
+    expect(result.nextSteps).toHaveLength(6);
+    expect(result.nextSteps[0]).toMatch(/National Portal/);
+  });
+
+  it.each([
+    ['not a citizen', { isIndianCitizen: false }, /citizens/],
+    ['a shop connection', { connection: 'commercial' }, /Shop and office/],
+    ['a factory connection', { connection: 'industrial' }, /Factory/],
+    ['no connection', { connection: 'none' }, /home electricity connection/],
+    ['an off-grid system', { gridConnected: false }, /connected to the electricity grid/],
+    ['an earlier subsidy', { receivedSubsidyBefore: true }, /only once/],
+  ] as const)('is not eligible with %s', (_name, change, reason) => {
+    const result = checkEligibility({ ...eligible, ...change });
+    expect(result.status).toBe('not_eligible');
+    expect(result.reasons).toHaveLength(1);
+    expect(result.reasons[0]).toMatch(reason);
+    expect(result.nextSteps).toEqual([]);
+  });
+
+  it('lists every reason that applies', () => {
+    const result = checkEligibility({ isIndianCitizen: false, connection: 'commercial', gridConnected: false, receivedSubsidyBefore: true });
+    expect(result.reasons).toHaveLength(4);
   });
 });

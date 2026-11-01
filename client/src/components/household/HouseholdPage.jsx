@@ -4,10 +4,11 @@ import { currentHousehold, myRequests } from '../../lib/domain.js';
 import { useApp } from '../../AppContext.jsx';
 import Hero from './Hero.jsx';
 import WhySolar, { SubsidyRef } from './WhySolar.jsx';
+import EligibilityCheck from './EligibilityCheck.jsx';
 import RequestForm from './RequestForm.jsx';
 import MyRequests from './MyRequests.jsx';
 
-const SECTIONS = [['hh-overview', 'Overview'], ['why-solar', 'Benefits'], ['request-form-card', 'Post request'], ['subsidy-ref', 'Subsidy'], ['my-requests-section', 'My requests']];
+const SECTIONS = [['hh-overview', 'Overview'], ['why-solar', 'Benefits'], ['eligibility-card', 'Eligibility'], ['request-form-card', 'Post request'], ['subsidy-ref', 'Subsidy'], ['my-requests-section', 'My requests']];
 
 export default function HouseholdPage({ active }) {
   useDB();
@@ -57,6 +58,7 @@ export default function HouseholdPage({ active }) {
       </nav>
       <Hero firstName={(session?.name || '').split(' ')[0]} go={go} />
       <WhySolar go={go} />
+      <EligibilityCheck />
       <RequestForm profile={session?.profile || {}} active={active} onPosted={() => setTimeout(() => go('my-requests-section'), 50)} />
       <SubsidyRef />
       <MyRequests requests={requests} />

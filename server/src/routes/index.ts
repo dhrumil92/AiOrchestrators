@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { transcribeAndExtract } from '../ai/index.js';
 import { pool } from '../db/pool.js';
 import { calculateExample } from '../rules/calculations.js';
+import { checkEligibility } from '../rules/eligibility.js';
 import { RULE_CATALOG } from '../rules/catalog.js';
 import { currentUser, loadUser, requireAuth, requireRole } from '../auth/middleware.js';
 import { acceptQuote, listVendorQuotes } from '../services/quotes.js';
@@ -13,6 +14,7 @@ import {
   audioFilename,
   audioUpload,
   calculatorQuery,
+  eligibilitySchema,
   idParam,
   voiceBody,
 } from './validation.js';
@@ -51,6 +53,10 @@ apiRouter.use(requireAuth);
 apiRouter.get('/calculator', (req, res) => {
   const { kw, monthlyUnits } = calculatorQuery.parse(req.query);
   res.json(calculateExample(kw, monthlyUnits));
+});
+
+apiRouter.post('/eligibility', requireRole('household'), (req, res) => {
+  res.json(checkEligibility(eligibilitySchema.parse(req.body)));
 });
 
 apiRouter.get('/vendors/:id/quotes', async (req, res) => {

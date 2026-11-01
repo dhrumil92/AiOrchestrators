@@ -251,13 +251,48 @@ export interface Comparison {
   recommendation: Recommendation;
 }
 
+/** POST /eligibility (household only). A quick guide to the scheme's applicant rules. Nothing is saved. */
+export interface EligibilityBody {
+  isIndianCitizen: boolean;
+  /** The kind of electricity connection at the home. */
+  connection: 'residential' | 'commercial' | 'industrial' | 'none';
+  /** The rooftop system will be connected to the grid, not run alone. */
+  gridConnected: boolean;
+  /** Declares that this home already received the central subsidy. */
+  receivedSubsidyBefore: boolean;
+}
+
+export interface EligibilityResult {
+  status: 'likely_eligible' | 'not_eligible';
+  /** Plain-language reasons. Empty when likely eligible. */
+  reasons: string[];
+  /** The official steps that follow. Empty when not eligible. */
+  nextSteps: string[];
+}
+
+export type VoiceFieldName = 'monthlyUnits' | 'roofArea' | 'location' | 'budget' | 'preferredKw';
+
+/** POST /voice/transcribe. Nothing is saved: the household reviews the fields and then posts the request. */
 export interface VoiceResult {
+  /** What was said, exactly as transcribed. Empty if nothing could be heard. */
   transcript: string;
   fields: {
     monthlyUnits: number | null;
     budgetRupees: number | null;
-    notes: string | null;
+    /** Converted from square feet in code when needed. Null if said without a unit. */
+    roofAreaSqm: number | null;
+    /** The address or area, as said. */
+    location: string | null;
+    preferredKw: number | null;
+    roofType: 'flat' | 'sloped' | 'sheet' | null;
+    /** Things on the roof such as a water tank, in the speaker's words. */
+    obstructions: string[];
+    additionalRequirements: string[];
   };
+  /** Core fields that were not mentioned. */
+  missingFields: VoiceFieldName[];
+  /** Core fields that were mentioned but not clearly enough to trust. The household should confirm them. */
+  unclearFields: VoiceFieldName[];
   source: AiSource;
 }
 

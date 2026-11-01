@@ -12,7 +12,7 @@ export function VerifyCard({ v }) {
   const checks = verificationChecks(v), done = checks.filter(c => c.ok).length;
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 lg:sticky lg:top-[calc(var(--hdr-h)+16px)]">
-      <div className="flex items-center justify-between gap-2"><h3 className="font-bold text-gray-900">Verification</h3><Badge v={v} /></div>
+      <div className="flex items-center justify-between gap-2"><h3 className="font-bold text-gray-900">Profile checklist</h3><Badge v={v} /></div>
       <div className="mt-4 h-2 rounded-full bg-gray-100 overflow-hidden"><div className="h-full rounded-full bg-green-600 transition-all duration-700" style={{ width: done / checks.length * 100 + '%' }} /></div>
       <div className="mt-1 text-xs text-gray-500">{done} of {checks.length} completed</div>
       <ul className="mt-4 space-y-2">

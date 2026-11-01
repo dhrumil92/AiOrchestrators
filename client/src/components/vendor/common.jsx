@@ -5,12 +5,12 @@ export function Badge({ v }) {
   const checks = verificationChecks(v), done = checks.filter(c => c.ok).length;
   if (done === checks.length) {
     return (
-      <span className="vbadge-verified inline-flex items-center gap-1 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm" title="All business details completed and format-checked">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>Verified profile
+      <span className="vbadge-verified inline-flex items-center gap-1 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm" title="All business details are filled in and correctly formatted. Registration numbers are self-declared and not checked against government records.">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>Profile complete
       </span>
     );
   }
-  return <span className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-800 border border-yellow-200 text-xs font-bold px-2.5 py-1 rounded-full" title="Complete your business profile to earn the verified badge">⏳ Verification {done}/{checks.length}</span>;
+  return <span className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-800 border border-yellow-200 text-xs font-bold px-2.5 py-1 rounded-full" title="Fill in your business profile to earn the Profile complete badge">⏳ Profile {done}/{checks.length}</span>;
 }
 
 export function NotifItem({ n, unread, compact, onGo }) {

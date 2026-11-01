@@ -92,7 +92,7 @@ export function VendorShowcase() {
     ['map', 'Demand on a map', 'Spot open enquiries near your service area at a glance.', true],
     ['box', 'One-click quotes', 'Save your panels and inverters once, reuse them in every quote.', false],
     ['steps', 'Installation tracker', 'Survey → DISCOM approval → install → net metering, all in one place.', true],
-    ['shield', 'Verified badge', 'Complete your business profile to stand out to households.', false],
+    ['shield', 'Complete-profile badge', 'Fill in your business profile to stand out to households.', false],
     ['star', 'Reviews that sell', 'Happy customers rate your work after every completed job.', true],
   ];
   return (

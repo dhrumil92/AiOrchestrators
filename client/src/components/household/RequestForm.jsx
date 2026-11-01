@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { api } from '../../lib/api.js';
 import { refreshMarket } from '../../lib/storage.js';
-import { startRecording } from '../../lib/recorder.js';
+import { cancelRecording, MIN_AUDIO_BYTES, startRecording } from '../../lib/recorder.js';
+import { applyVoiceFields, describeVoice, voiceSummary } from '../../lib/voiceFill.js';
 import { useToast } from '../ui/Toast.jsx';
 import LeafletMap, { pinIcon } from '../shared/LeafletMap.jsx';
 import { LANGUAGES } from './SolarPlan.jsx';
@@ -20,12 +21,24 @@ export default function RequestForm({ profile, active, onPosted }) {
   const [photo, setPhoto] = useState(null);       // { dataUrl, file }
   const [voice, setVoice] = useState('idle');     // idle | listening | understanding
   const [transcript, setTranscript] = useState('');
+  const [review, setReview] = useState(null);     // what to check after a recording, from describeVoice
+  const [voiced, setVoiced] = useState([]);       // form keys filled from voice and not edited since
   const [busy, setBusy] = useState(false);
   const recRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const fileRef = useRef(null);
-  const set = k => e => setF(s => ({ ...s, [k]: e.target.value }));
+  const set = k => e => { setF(s => ({ ...s, [k]: e.target.value })); setVoiced(v => v.filter(x => x !== k)); };
+
+  const fieldCls = k => {
+    if (voiced.includes(k)) return `${inputCls} ring-2 ring-green-300 border-green-400`;
+    if (review?.confirmKeys.includes(k) && f[k] === '') return `${inputCls} ring-2 ring-amber-300 border-amber-400`;
+    return inputCls;
+  };
+  const voiceTag = k => voiced.includes(k) && <span className="ml-2 normal-case tracking-normal text-green-700 font-semibold">🎤 from your voice, please check</span>;
+
+  // Leaving the page while recording must release the microphone.
+  useEffect(() => () => cancelRecording(recRef.current), []);
 
   function placePin(lat, lng) {
     const m = mapRef.current;
@@ -57,27 +70,42 @@ export default function RequestForm({ profile, active, onPosted }) {
     reader.readAsDataURL(file);
   }
 
+  // Fills the form for review. It never posts the request: that needs the submit button.
   async function understand(blob) {
+    if (blob.size < MIN_AUDIO_BYTES) {
+      setVoice('idle');
+      return toast('That recording was empty. Please try again and speak after pressing the button.', 'error');
+    }
     setVoice('understanding');
     try {
       const r = await api.transcribe(blob, language);
       setTranscript(r.transcript);
-      if (!r.transcript) return toast('We could not hear that. Please try again or type.', 'error');
-      setF(s => ({ ...s, units: r.fields.monthlyUnits ?? s.units, budget: r.fields.budgetRupees ?? s.budget }));
-      const filled = r.fields.monthlyUnits !== null || r.fields.budgetRupees !== null;
-      toast(filled ? '✅ Form filled from your voice. Please check it.' : 'We heard you, but found no units or budget. Please type them.', filled ? 'success' : 'info');
+      setReview(r.transcript ? describeVoice(r) : null);
+      const { form, voiced: keys } = applyVoiceFields(f, r.fields);
+      setF(form);
+      setVoiced(keys);
+      const { text, kind } = voiceSummary(r, keys.length);
+      toast(text, kind);
     } catch (err) { toast(err.message, 'error'); }
     finally { setVoice('idle'); }
   }
   async function toggleVoice() {
     if (recRef.current) { recRef.current.stop(); recRef.current = null; return; }
     if (voice !== 'idle') return;
+    setVoice('starting');
     const rec = await startRecording({ onDone: understand, onError: msg => toast(msg, 'error') });
-    if (rec) { recRef.current = rec; setVoice('listening'); }
+    if (rec) { recRef.current = rec; setVoice('listening'); } else setVoice('idle');
+  }
+  function cancelVoice() {
+    cancelRecording(recRef.current);
+    recRef.current = null;
+    setVoice('idle');
+    toast('Recording cancelled. Nothing was changed.', 'info');
   }
 
   async function submit(e) {
     e.preventDefault();
+    if (busy) return;
     const name = f.name.trim(), address = f.address.trim();
     const units = Number(f.units), budget = Number(f.budget);
     if (!name || !address || !(units > 0) || !(budget > 0)) return toast('Please fill in all required fields.', 'error');
@@ -92,7 +120,7 @@ export default function RequestForm({ profile, active, onPosted }) {
       if (photo) await api.uploadPhoto(req.id, photo.file);
       await refreshMarket();
       toast('🎉 Request posted! Vendors will quote soon.', 'success');
-      setF(blank()); setPhoto(null); setTranscript('');
+      setF(blank()); setPhoto(null); setTranscript(''); setReview(null); setVoiced([]);
       if (fileRef.current) fileRef.current.value = '';
       if (markerRef.current) { mapRef.current?.removeLayer(markerRef.current); markerRef.current = null; }
       setPin(null);
@@ -109,37 +137,55 @@ export default function RequestForm({ profile, active, onPosted }) {
           <select value={language} onChange={e => setLanguage(e.target.value)} aria-label="Language" className="border border-gray-200 rounded-full px-3 py-2 text-sm bg-gray-50">
             {LANGUAGES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select>
-          <button type="button" onClick={toggleVoice} disabled={voice === 'understanding'} className={`flex items-center gap-2 text-white px-4 py-2 rounded-full text-sm font-semibold transition shadow-md disabled:opacity-60 ${voice === 'listening' ? 'bg-red-500 listening-pulse' : 'bg-green-600 hover:bg-green-700'}`}>
-            🎤 <span>{voice === 'listening' ? 'Stop' : voice === 'understanding' ? 'Understanding…' : 'Fill by Voice'}</span>
+          <button type="button" onClick={toggleVoice} disabled={voice === 'understanding' || voice === 'starting'} className={`flex items-center gap-2 text-white px-4 py-2 rounded-full text-sm font-semibold transition shadow-md disabled:opacity-60 ${voice === 'listening' ? 'bg-red-500 listening-pulse' : 'bg-green-600 hover:bg-green-700'}`}>
+            🎤 <span>{voice === 'listening' ? 'Stop' : voice === 'understanding' ? 'Understanding…' : transcript ? 'Record again' : 'Fill by Voice'}</span>
           </button>
         </div>
       </div>
       {voice === 'listening' && (
-        <div className="bg-red-50 border-b border-red-200 px-6 py-3 flex flex-wrap items-center gap-3">
+        <div role="status" className="bg-red-50 border-b border-red-200 px-6 py-3 flex flex-wrap items-center gap-3">
           <div className="w-3 h-3 bg-red-500 rounded-full listening-pulse" />
-          <span className="text-red-700 text-sm font-medium">Listening... Say your units and budget, then press Stop</span>
-          <span className="text-red-500 text-xs">(e.g. "मेरा महीने का उपयोग 300 यूनिट है और बजट डेढ़ लाख है")</span>
+          <span className="text-red-700 text-sm font-medium">Recording… say your monthly units, terrace area, address, budget and the kW you want, then press Stop</span>
+          <button type="button" onClick={cancelVoice} className="text-red-700 text-xs font-bold underline">Cancel</button>
+          <span className="w-full text-red-500 text-xs">For example: "मेरा महीने का उपयोग 300 यूनिट है, छत 500 वर्ग फीट है और बजट डेढ़ लाख है"</span>
         </div>
       )}
-      {transcript && <div className="bg-blue-50 border-b border-blue-100 px-6 py-3 text-sm text-blue-800 italic">🎤 You said: "{transcript}"</div>}
+      {voice === 'understanding' && <div role="status" className="bg-amber-50 border-b border-amber-100 px-6 py-3 text-sm text-amber-800 font-medium">⏳ Listening to your recording…</div>}
+      {transcript && (
+        <div className="bg-blue-50 border-b border-blue-100 px-6 py-3 text-sm text-blue-900 space-y-1.5">
+          <div className="italic">🎤 You said: "{transcript}"</div>
+          {review && (
+            <>
+              <div className="font-semibold">Nothing is posted yet. Check the highlighted boxes below, change anything that is wrong, then press "Post My Solar Requirement".</div>
+              {review.unclear.length > 0 && <div className="text-amber-800">⚠️ Not clear, please confirm: {review.unclear.join(', ')}.</div>}
+              {review.missing.length > 0 && <div className="text-gray-700">Not mentioned: {review.missing.join(', ')}.</div>}
+              {review.extras.length > 0 && (
+                <div className="text-gray-700">
+                  Also heard: {review.extras.map(([k, v]) => `${k}: ${v}`).join(' · ')}. These are not part of the request form yet, so mention them to your installer.
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <form onSubmit={submit} noValidate className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
         <div><label htmlFor="h-name" className={labelCls}>Full Name *</label><input id="h-name" value={f.name} onChange={set('name')} placeholder="e.g. Ravi Kumar" className={inputCls} /></div>
         <div><label htmlFor="h-phone" className={labelCls}>Phone</label><input id="h-phone" type="tel" value={f.phone} onChange={set('phone')} placeholder="Shared only with the vendor you accept" className={inputCls} /></div>
-        <div className="md:col-span-2"><label htmlFor="h-address" className={labelCls}>Address *</label><input id="h-address" value={f.address} onChange={set('address')} placeholder="House no., street, city" className={inputCls} /><p className="text-xs text-gray-500 mt-1">Put the city last. Vendors see only the city until you accept a quote.</p></div>
+        <div className="md:col-span-2"><label htmlFor="h-address" className={labelCls}>Address *{voiceTag('address')}</label><input id="h-address" value={f.address} onChange={set('address')} placeholder="House no., street, city" className={fieldCls('address')} /><p className="text-xs text-gray-500 mt-1">Put the city last. Vendors see only the city until you accept a quote.</p></div>
         <div>
-          <label htmlFor="h-units" className={labelCls}>Monthly Electricity Use (units) *</label>
-          <input id="h-units" type="number" min="1" value={f.units} onChange={set('units')} placeholder="e.g. 300" className={inputCls} />
+          <label htmlFor="h-units" className={labelCls}>Monthly Electricity Use (units) *{voiceTag('units')}</label>
+          <input id="h-units" type="number" min="1" value={f.units} onChange={set('units')} placeholder="e.g. 300" className={fieldCls('units')} />
           <p className="text-xs text-gray-500 mt-1">Units (kWh), as shown on your bill</p>
         </div>
         <div>
-          <label htmlFor="h-budget" className={labelCls}>Budget (₹) *</label>
-          <input id="h-budget" type="number" min="1" value={f.budget} onChange={set('budget')} placeholder="e.g. 150000" className={inputCls} />
+          <label htmlFor="h-budget" className={labelCls}>Budget (₹) *{voiceTag('budget')}</label>
+          <input id="h-budget" type="number" min="1" value={f.budget} onChange={set('budget')} placeholder="e.g. 150000" className={fieldCls('budget')} />
         </div>
         <div>
-          <label htmlFor="h-area" className={labelCls}>Clear Terrace Area (sq m)</label>
-          <input id="h-area" type="number" min="0" value={f.area} onChange={set('area')} placeholder="e.g. 30" className={inputCls} />
-          <p className="text-xs text-gray-500 mt-1">You can confirm this after the terrace check</p>
+          <label htmlFor="h-area" className={labelCls}>Clear Terrace Area (sq m){voiceTag('area')}</label>
+          <input id="h-area" type="number" min="0" step="any" value={f.area} onChange={set('area')} placeholder="e.g. 30" className={fieldCls('area')} />
+          <p className="text-xs text-gray-500 mt-1">{voiced.includes('area') ? 'Converted to square metres from what you said (1 sq ft = 0.0929 sq m)' : 'You can confirm this after the terrace check'}</p>
         </div>
         <div>
           <label htmlFor="h-photo" className={labelCls}>Terrace / Rooftop Photo</label>

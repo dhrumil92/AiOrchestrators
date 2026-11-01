@@ -35,6 +35,7 @@ export const api = {
   resetPassword: (token, password) => call('/auth/reset-password', json('POST', { token, password })),
   changePassword: (currentPassword, newPassword) => call('/auth/change-password', json('POST', { currentPassword, newPassword })),
   health: () => call('/health'),
+  checkEligibility: body => call('/eligibility', json('POST', body)),
   rules: () => call('/rules'),
   calculator: (kw, monthlyUnits) => call(`/calculator?kw=${kw}&monthlyUnits=${monthlyUnits}`),
   requests: () => call('/requests'),

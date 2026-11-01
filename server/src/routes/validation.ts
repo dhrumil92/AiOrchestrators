@@ -60,6 +60,13 @@ export const signupSchema = z
 
 export const loginSchema = z.object({ email, password: z.string().min(1).max(128) });
 
+export const eligibilitySchema = z.object({
+  isIndianCitizen: z.boolean(),
+  connection: z.enum(['residential', 'commercial', 'industrial', 'none']),
+  gridConnected: z.boolean(),
+  receivedSubsidyBefore: z.boolean(),
+});
+
 export const forgotPasswordSchema = z.object({ email });
 
 export const resetPasswordSchema = z.object({
