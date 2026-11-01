@@ -85,6 +85,6 @@ Cut from the top first.
 7. What comes next.
 
 ## Rule verification still open
-- [ ] Confirm whether the July 2025 MNRE amendments change anything used here.
+- [x] Check the July 2025 MNRE amendments. Secondary coverage shows no change to the rates used here.
 - [ ] Confirm current free-tier limits in the Groq console and Google AI Studio.
 - [ ] Confirm the current subsidy on the national portal if it is accessible.

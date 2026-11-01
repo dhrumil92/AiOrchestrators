@@ -59,7 +59,7 @@ AI calls should never hold open a web request.
 
 Workers use retries with exponential backoff and a failed-job queue. Job keys prevent duplicates. Jobs are prioritised so interactive voice work comes before explanations.
 
-The demo's stretch queue uses a PostgreSQL table with `FOR UPDATE SKIP LOCKED`. It proves the design without new infrastructure. Move to Redis/BullMQ or SQS as volume grows.
+**Not built in the demo.** AI calls run during the web request, with an in-memory rate limiter, retries and labelled fallbacks. An unused `ai_jobs` table is already in the schema. The first production step is a worker that reads it with `FOR UPDATE SKIP LOCKED`, then a move to Redis/BullMQ or SQS as volume grows.
 
 ## 6. Staying within LLM limits
 Free tiers will not serve production. Published limits vary by model and plan, so check them in each provider's console.

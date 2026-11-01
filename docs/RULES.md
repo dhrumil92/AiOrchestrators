@@ -10,13 +10,13 @@ Checked on 1 November 2026.
 | S1 | MNRE, *Guidelines for PM-Surya Ghar: Muft Bijli Yojana, Central Financial Assistance to Residential Consumers*, capex mode. [Copy hosted by Delhi government](https://solar.delhi.gov.in/public/assets/solar/PMSG_Guidelines_for_Residential_CFA_Capex_Mode.pdf) | Read directly |
 | S2 | [Delhi Solar Portal: central subsidy](https://solar.delhi.gov.in/page/central-subsidy) | Read directly, updated 1 November 2026 |
 | S3 | [GERC tariff schedule for DGVCL, MGVCL, PGVCL and UGVCL, effective 1 April 2026](https://gercin.org/viewdocument/dGFyaWZmc2NoZWR1bGVfcGRmXzE3ODYwOTcyMjFfNzk2NA==) | Read directly |
-| S4 | [Mercom: MNRE amendments, 8 July 2025](https://www.mercomindia.com/mnre-revises-central-financial-assistance-norms-under-pm-surya-ghar-program) | Body is paywalled, so the amendment details are unknown |
+| S4 | [Renewable Watch: amended guidelines, 9 July 2025](https://renewablewatch.in/2025/07/09/mnre-notifies-amended-guidelines-for-pm-surya-ghar-yojana/) and [SolarQuarter, 8 July 2025](https://solarquarter.com/2025/07/08/mnre-amends-pm-surya-ghar-yojana-to-simplify-cfa-process-for-residential-rooftop-solar-installations/) | Secondary coverage, summary via search. The MNRE notice itself was not read |
 | S5 | [SolarQuarter: scheme subsidy guidelines, 1 September 2026](https://solarquarter.com/2026/09/01/pm-surya-ghar-scheme-mnre-details-rooftop-solar-subsidy-guidelines-for-residential-consumers/) | Secondary source. Confirms the same rates and DCR rule |
 | S6 | [CSE publication on rooftop generation](https://www.cseindia.org/content/downloadreports/13022) and [PIB document](https://static.pib.gov.in/WriteReadData/specificdocs/documents/2022/apr/doc202242850101.pdf) | Summary only, via search results |
 
 **Known gaps**
 - The national portal and MNRE's own page could not be read, so S1 is a state-hosted copy.
-- The July 2025 amendments could not be read. S2 and S5, both newer, still show the same rates, so we use them. Confirm with the organisers or the portal if time allows.
+- The July 2025 amendments are known only from secondary coverage. It reports the same subsidy rates, the same DCR rule and the same 31 March 2027 end date. It also says vendors must maintain systems for five years, which this app does not check. S2 and S5, both newer, show the same rates.
 - The scheme's stated implementation period ends on 31 March 2027 (S1, section 2d). The app should show this date.
 
 ## 2. Central subsidy (CFA)
