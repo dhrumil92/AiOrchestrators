@@ -25,7 +25,8 @@ Express API
 
 ## 3. Repository layout
 ```
-client/src/      pages/  components/  charts/  api/  types/
+client/src/      pages/  components/  charts/  api/
+shared/          api.ts: types used by client and server
 server/src/      routes/ services/ rules/ ai/ security/ storage/ db/ seed/
 server/uploads/  local photos, ignored by git
 docs/            rules, architecture, scaling, tasks
@@ -63,6 +64,8 @@ The `input_hash` covers quote data and language. If unchanged, the stored explan
 
 ## 5. API contract
 Base path: `/api`. JSON unless stated. Errors use `{ "error": { "code": "...", "message": "..." } }`.
+
+`shared/api.ts` holds the full request and response types and is the exact contract. The JSON below is a shortened view. When panels are not confirmed, `subsidyRupees` is 0 and `amountYouPayRupees` is the full price. The `possibleSubsidyRupees`, `amountIfSubsidyApprovedRupees` and `paybackIfSubsidyApprovedYears` fields carry the other case, so the screen can show both.
 
 | Method | Path | Purpose | Screen |
 |---|---|---|---|

@@ -19,7 +19,14 @@ If a task conflicts with these documents, stop and raise it. Change the contract
 - AI: Gemini for photos, Groq for speech and text, free tiers only
 
 ## Commands
-No code exists yet. Add the real commands here once setup is done.
+Run these from `server/`:
+- `npm run dev`: start the API on port 4000
+- `npm test`: run server tests
+- `npm run typecheck`: check types
+- `npm run db:setup`: apply migrations and seed
+- `npm run db:seed`: replace all marketplace data with the demo data. This wipes data entered by hand
+
+Shared API types live in `shared/api.ts`.
 
 ## Non-negotiable rules
 1. **The LLM never produces numbers.** Subsidy, cost, payback, savings, scores and ranking come from `server/src/rules/`.
