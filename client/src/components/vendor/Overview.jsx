@@ -41,7 +41,7 @@ function Stat({ icon, yellow, value, label, sub, onClick }) {
 }
 
 export default function Overview({ v, st, show, addProduct }) {
-  const wonValue = st.won.reduce((a, q) => a + (q.price || 0), 0);
+  const wonValue = st.won.reduce((a, q) => a + (q.priceRupees || 0), 0);
   const kw = st.done.reduce((a, q) => a + quoteKw(q), 0);
   const notifs = buildNotifications(v).slice(0, 5);
   const counts = INSTALL_STAGES.map((_, i) => st.won.filter(q => (q.installStage || 0) === i).length);

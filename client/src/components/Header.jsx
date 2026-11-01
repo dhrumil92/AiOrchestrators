@@ -1,17 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { api } from '../lib/api.js';
 import { db } from '../lib/storage.js';
-import { loadSampleData } from '../lib/domain.js';
 import { useApp } from '../AppContext.jsx';
-import { useToast } from './ui/Toast.jsx';
 import { Icon } from './ui/bits.jsx';
 
 export default function Header({ tab, setTab, settingsOpen, setSettingsOpen }) {
   const { session } = useApp();
-  const toast = useToast();
   const ref = useRef(null);
   const panelRef = useRef(null);
   const btnRef = useRef(null);
-  const [key, setKey] = useState(db.apiKey());
+  const [health, setHealth] = useState(null);
   const isVendor = session.role === 'vendor';
 
   // Publish header height as --hdr-h so sticky elements sit right below it.
@@ -34,11 +32,16 @@ export default function Header({ tab, setTab, settingsOpen, setSettingsOpen }) {
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
   }, [settingsOpen, setSettingsOpen]);
 
-  const saveKey = () => {
-    if (!key.trim()) return toast('Please enter an API key', 'error');
-    db.saveApiKey(key.trim());
-    toast('API key saved!', 'success');
+  useEffect(() => {
+    if (settingsOpen) api.health().then(setHealth).catch(() => setHealth(null));
+  }, [settingsOpen]);
+
+  const vendors = db.vendorList();
+  const asVendor = vendorId => {
+    const v = vendors.find(x => x.id === vendorId);
+    if (v) db.saveSession({ role: 'vendor', name: v.name, vendorId: v.id, profile: {}, loginTime: new Date().toISOString() });
   };
+  const asHousehold = () => db.saveSession({ role: 'household', name: 'Meena Patel', profile: { name: 'Meena Patel' }, loginTime: new Date().toISOString() });
   const logout = () => { setSettingsOpen(false); db.clearSession(); };
   const tabs = [
     !isVendor && { id: 'household', icon: '🏠', label: 'I Need Solar' },
@@ -59,12 +62,16 @@ export default function Header({ tab, setTab, settingsOpen, setSettingsOpen }) {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <div className="subsidy-badge hidden md:block text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-sm">✅ Subsidy up to ₹78,000</div>
-            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full pl-2 pr-3 py-1">
-              <span className="text-base" aria-hidden="true">{isVendor ? '🔧' : '🏠'}</span>
-              <span className="text-gray-800 text-xs font-semibold max-w-[110px] sm:max-w-[180px] truncate">{session.name}</span>
-              <span className="text-gray-500 text-xs hidden sm:inline">({isVendor ? 'Vendor' : 'Household'})</span>
+            <div className="flex rounded-full border border-gray-200 bg-gray-50 p-0.5 text-xs font-semibold" role="group" aria-label="Demo role">
+              <button onClick={asHousehold} aria-pressed={!isVendor} className={`px-3 py-1 rounded-full ${!isVendor ? 'bg-green-600 text-white' : 'text-gray-600'}`}>Household</button>
+              <button onClick={() => asVendor(session.vendorId || vendors[0]?.id)} aria-pressed={isVendor} className={`px-3 py-1 rounded-full ${isVendor ? 'bg-green-600 text-white' : 'text-gray-600'}`}>Vendor</button>
             </div>
+            {isVendor && (
+              <select value={session.vendorId} onChange={e => asVendor(e.target.value)} aria-label="Vendor" className="hidden sm:block max-w-[170px] border border-gray-200 rounded-full px-2 py-1 text-xs bg-white">
+                {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+              </select>
+            )}
+            <div className="subsidy-badge hidden xl:block text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-sm">✅ Subsidy up to ₹78,000</div>
             <button ref={btnRef} onClick={() => setSettingsOpen(o => !o)} aria-haspopup="dialog" aria-expanded={settingsOpen} title="Settings" aria-label="Settings"
               className="w-9 h-9 rounded-full border border-gray-200 bg-white hover:bg-green-50 hover:border-green-300 text-gray-600 hover:text-green-700 flex items-center justify-center transition">
               <Icon name="gear" size={18} />
@@ -84,22 +91,12 @@ export default function Header({ tab, setTab, settingsOpen, setSettingsOpen }) {
           </div>
           <div className="mt-4">
             <div className="text-sm font-bold text-gray-800">🤖 AI features</div>
-            <p className="text-xs text-gray-600 mt-1 leading-relaxed">Voice form-filling, terrace photo analysis, quote comparison and SuryaBot use Google Gemini. Paste a free API key. It's stored only in this browser.</p>
-            <div className="mt-3 flex gap-2">
-              <input autoFocus type="password" value={key} onChange={e => setKey(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveKey()}
-                placeholder="AIza…" aria-label="Gemini API key" className="flex-1 min-w-0 bg-white border border-gray-200 text-gray-800 text-sm px-3 py-2 rounded-lg placeholder-gray-400" />
-              <button onClick={saveKey} className="bg-green-600 hover:bg-green-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Save</button>
-            </div>
-            <div className="mt-2 flex items-center justify-between">
-              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-green-700 hover:text-green-800 text-xs font-semibold underline">Get a free key →</a>
-              {db.apiKey() && <span className="text-xs text-green-700 font-semibold">✅ Active</span>}
-            </div>
-          </div>
-          <div className="mt-5 pt-4 border-t border-gray-100">
-            <div className="text-sm font-bold text-gray-800">🎭 Demo data</div>
-            <p className="text-xs text-gray-600 mt-1 leading-relaxed">Adds sample requests and quotes so you can try the app. For testing only, not real customers.</p>
-            <button onClick={() => { loadSampleData(session); setSettingsOpen(false); toast('🎭 Sample data loaded: 2 requests, 3 quotes.', 'success'); }}
-              className="mt-2 w-full text-sm font-semibold px-4 py-2 rounded-lg border border-yellow-300 bg-yellow-50 hover:bg-yellow-100 text-yellow-900 transition">Load sample data</button>
+            <p className="text-xs text-gray-600 mt-1 leading-relaxed">Photo review, voice and explanations run on the server. If AI is unavailable, the app shows a labelled basic explanation and all calculated figures still work.</p>
+            <ul className="mt-2 space-y-1 text-xs font-semibold">
+              <li className={health?.database === 'ok' ? 'text-green-700' : 'text-red-700'}>{health?.database === 'ok' ? '✅ Database connected' : '⚠️ Database not connected'}</li>
+              <li className={health?.ai?.gemini ? 'text-green-700' : 'text-amber-700'}>{health?.ai?.gemini ? '✅ Gemini configured' : '⚠️ Gemini not configured'}</li>
+              <li className={health?.ai?.groq ? 'text-green-700' : 'text-amber-700'}>{health?.ai?.groq ? '✅ Groq configured' : '⚠️ Groq not configured'}</li>
+            </ul>
           </div>
           <button onClick={logout} className="mt-4 w-full text-sm font-semibold px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Logout</button>
         </div>

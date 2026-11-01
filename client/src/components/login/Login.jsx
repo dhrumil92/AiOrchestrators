@@ -1,71 +1,32 @@
 import { useMemo, useState } from 'react';
-import { db } from '../../lib/storage.js';
-import { normPhone, isValidPhone, EMAIL_RE, hashPin } from '../../lib/utils.js';
-import { vendorIdFromPhone } from '../../lib/domain.js';
+import { db, useDB } from '../../lib/storage.js';
 import { useToast } from '../ui/Toast.jsx';
 import Landing from './Landing.jsx';
 import { HouseholdShowcase, VendorShowcase } from './Showcase.jsx';
 
-const field = 'w-full text-gray-800 placeholder-gray-400 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:bg-white transition';
-const THEME = {
-  household: { label: 'text-amber-700', input: 'bg-amber-50/60 border border-amber-200' },
-  vendor:    { label: 'text-green-700', input: 'bg-green-50/50 border border-green-200' },
-};
-
-function Field({ role, id, label, hint, as = 'input', ...props }) {
-  const t = THEME[role];
-  const Tag = as;
-  return (
-    <div>
-      <label htmlFor={id} className={`${t.label} text-xs font-bold uppercase tracking-widest mb-1.5 block`}>{label}</label>
-      <Tag id={id} className={`${field} ${t.input} ${as === 'textarea' ? 'resize-none py-3' : ''}`} {...props} />
-      {hint && <p className="text-xs text-gray-500 mt-1">{hint}</p>}
-    </div>
-  );
-}
-
+// The demo has no real login: pick a household name, or one of the vendors on the server.
 function ProfileStep({ role, initialName, onBack }) {
+  useDB();
   const toast = useToast();
-  const [f, setF] = useState(role === 'household'
-    ? { name: initialName, phone: '', email: '', address: '', pin: '' }
-    : { shop: '', name: initialName, phone: '', pin: '' });
-  const [busy, setBusy] = useState(false);
-  const set = k => e => setF(s => ({ ...s, [k]: e.target.value }));
   const isHH = role === 'household';
+  const vendors = db.vendorList();
+  const [name, setName] = useState(initialName || 'Meena Patel');
+  const [vendorId, setVendorId] = useState('');
 
-  async function submit(e) {
+  function submit(e) {
     e.preventDefault();
-    const name = f.name.trim(), phone = f.phone.trim();
+    const loginTime = new Date().toISOString();
     if (isHH) {
-      if (!name || !phone || !f.email.trim() || !f.address.trim()) return toast('Please fill in all required fields.', 'error');
-      if (!EMAIL_RE.test(f.email.trim())) return toast('Enter a valid email address.', 'error');
-    } else if (!name || !phone) return toast('Please enter your name and phone number.', 'error');
-    if (!isValidPhone(phone)) return toast('Enter a valid 10-digit mobile number.', 'error');
-    if (!/^\d{4}$/.test(f.pin)) return toast('Please enter a 4-digit PIN.', 'error');
-
-    // PIN: first sign-in with a number creates it; later sign-ins must match.
-    setBusy(true);
-    const accId = (isHH ? 'h_' : 'v_') + normPhone(phone);
-    const accounts = db.accounts();
-    const pinHash = await hashPin(accId, f.pin);
-    setBusy(false);
-    if (accounts[accId] && accounts[accId].pinHash !== pinHash) { setF(s => ({ ...s, pin: '' })); return toast('Incorrect PIN for this phone number.', 'error'); }
-    if (!accounts[accId]) {
-      db.saveAccounts({ ...accounts, [accId]: { pinHash, createdAt: new Date().toISOString() } });
-      toast('🔒 Account created. Remember your PIN for next time.', 'info');
+      if (!name.trim()) return toast('Please enter your name.', 'error');
+      return db.saveSession({ role, name: name.trim(), profile: { name: name.trim() }, loginTime });
     }
-
-    let profile;
-    if (isHH) profile = { name, phone, email: f.email.trim(), address: f.address.trim() };
-    else {
-      const shop = f.shop.trim();
-      profile = { name: shop || name, shop, contactName: name, phone };
-      const vendors = db.vendors(), vid = vendorIdFromPhone(phone);
-      db.saveVendors({ ...vendors, [vid]: { ...(vendors[vid] || {}), shop, contactName: name, phone } });
-    }
-    db.saveSession({ role, name: profile.name, profile, loginTime: new Date().toISOString() });
+    const v = vendors.find(x => x.id === (vendorId || vendors[0]?.id));
+    if (!v) return toast('No vendors found. Is the server running and seeded?', 'error');
+    db.saveSession({ role, name: v.name, vendorId: v.id, profile: {}, loginTime });
   }
 
+  const label = isHH ? 'text-amber-700' : 'text-green-700';
+  const field = `w-full text-gray-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:bg-white transition ${isHH ? 'bg-amber-50/60 border border-amber-200' : 'bg-green-50/50 border border-green-200'}`;
   return (
     <div className="relative w-full max-w-6xl bounce-in my-auto">
       <div className="grid gap-6 items-start lg:grid-cols-[1.25fr_1fr]">
@@ -74,25 +35,24 @@ function ProfileStep({ role, initialName, onBack }) {
           <div className="flex items-center gap-3 mb-6">
             <button type="button" onClick={onBack} aria-label="Back" className="text-gray-500 hover:text-gray-800 text-2xl leading-none transition">←</button>
             <div>
-              <h2 className="text-gray-800 font-extrabold text-xl">{isHH ? '🏠 Household Profile' : '🔧 Vendor Sign-in'}</h2>
-              <p className="text-gray-500 text-xs mt-0.5">{isHH ? 'Tell us a bit more so vendors can reach you' : 'Join as a solar partner. Your details appear on every quote'}</p>
+              <h2 className="text-gray-800 font-extrabold text-xl">{isHH ? '🏠 Household' : '🔧 Vendor'}</h2>
+              <p className="text-gray-500 text-xs mt-0.5">Demo sign-in. You can switch role from the top bar at any time.</p>
             </div>
           </div>
-          <div className="space-y-4">
-            {isHH ? (<>
-              <Field role={role} id="p-name" label="👤 Full Name *" value={f.name} onChange={set('name')} placeholder="e.g. Ravi Kumar" autoComplete="name" />
-              <Field role={role} id="p-phone" label="📱 Contact Number *" value={f.phone} onChange={set('phone')} type="tel" inputMode="numeric" maxLength={10} placeholder="e.g. 9876543210" autoComplete="tel" />
-              <Field role={role} id="p-pin" label="🔒 4-digit PIN *" value={f.pin} onChange={set('pin')} type="password" inputMode="numeric" maxLength={4} placeholder="••••" hint="First time? This creates your PIN. Returning? Enter the PIN you set." />
-              <Field role={role} id="p-email" label="📧 Email Address *" value={f.email} onChange={set('email')} type="email" placeholder="e.g. ravi@email.com" autoComplete="email" />
-              <Field role={role} id="p-address" label="🏠 Complete Address *" as="textarea" rows={3} value={f.address} onChange={set('address')} placeholder="House no., Street, Area, City, State, PIN code" autoComplete="street-address" />
-            </>) : (<>
-              <Field role={role} id="p-shop" label="🏪 Shop / Company Name (if any)" value={f.shop} onChange={set('shop')} placeholder="Leave blank if you work independently" autoComplete="organization" />
-              <Field role={role} id="p-name" label="👤 Owner / Contact Name *" value={f.name} onChange={set('name')} placeholder="e.g. Suresh Mehta" autoComplete="name" />
-              <Field role={role} id="p-phone" label="📱 Phone Number *" value={f.phone} onChange={set('phone')} type="tel" inputMode="numeric" maxLength={10} placeholder="e.g. 9876543210" autoComplete="tel" />
-              <Field role={role} id="p-pin" label="🔒 4-digit PIN *" value={f.pin} onChange={set('pin')} type="password" inputMode="numeric" maxLength={4} placeholder="••••" hint="First time? This creates your PIN. Returning? Enter the PIN you set." />
-            </>)}
-          </div>
-          <button type="submit" disabled={busy} className="cta-primary mt-6 w-full py-3.5 rounded-2xl font-extrabold text-white text-base disabled:opacity-60">Enter the App →</button>
+          {isHH ? (
+            <div>
+              <label htmlFor="p-name" className={`${label} text-xs font-bold uppercase tracking-widest mb-1.5 block`}>👤 Your name</label>
+              <input id="p-name" value={name} onChange={e => setName(e.target.value)} className={field} autoComplete="name" />
+            </div>
+          ) : (
+            <div>
+              <label htmlFor="p-vendor" className={`${label} text-xs font-bold uppercase tracking-widest mb-1.5 block`}>🏪 Sign in as</label>
+              <select id="p-vendor" value={vendorId} onChange={e => setVendorId(e.target.value)} className={field}>
+                {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+              </select>
+            </div>
+          )}
+          <button type="submit" className="cta-primary mt-6 w-full py-3.5 rounded-2xl font-extrabold text-white text-base">Enter the App →</button>
         </form>
       </div>
     </div>

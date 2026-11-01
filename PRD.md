@@ -70,6 +70,8 @@ This is the team's main differentiator.
 1. Small Postgres-backed AI job queue with rate limiter. Attempt it if Checkpoint 1 is on time because it gives the scaling section real evidence.
 2. Price comparison with the scheme benchmark cost.
 
+**Removed:** free-text AI chat, because an LLM answering freely could produce numbers the rules say it must not. The AI tab answers from saved request data instead.
+
 **Out of scope:** full login, reading quotes from uploaded PDFs, payments, notifications, translated fixed UI labels, state top-up subsidies, and systems that already received a subsidy.
 
 Use a role switcher for household and vendor views.

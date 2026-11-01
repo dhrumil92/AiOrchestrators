@@ -27,6 +27,8 @@ Show the answer first, the picture second and the detail on request.
 Introduce "kWh" once as "units (kWh), as shown on your bill".
 
 ## 3. Visual style
+The built app uses a green and yellow theme with Tailwind, which replaced the teal listed below. Status colours, type sizes and touch targets still apply.
+
 - **Mood:** warm, trustworthy and simple. Avoid a dark "AI dashboard" look.
 - **Base:** warm off-white background, white cards, dark slate text.
 - **Primary:** deep teal, for main actions.
@@ -38,7 +40,7 @@ Introduce "kWh" once as "units (kWh), as shown on your bill".
 Use `frontend-design` for screen quality and `dataviz` for charts where available.
 
 ## 4. Navigation
-The top bar shows the product name, language picker and a **Household / Vendor** switch. A vendor dropdown appears in vendor mode.
+The top bar shows the product name and a **Household / Vendor** switch. A vendor dropdown appears in vendor mode. The language picker sits on the request form and on each solar plan, because language is saved per request.
 
 ## 5. Household screens
 ### H1. Tell us about your home
@@ -61,7 +63,7 @@ Route: `/requests/:id`.
 
 **Terrace review:** photo beside a list of findings, such as water tank and staircase room. The review is listed, not drawn on the photo, because box accuracy is not guaranteed. Note: "AI estimate. A site visit is still needed." The household confirms usable terrace area.
 
-**Usage vs generation chart:** monthly bars for units used and a sun-yellow line for estimated generation. Caption it as an average estimate.
+**Usage vs generation chart:** two bars, units used and estimated solar units. The estimate is the same every month, so 12 bars would suggest seasonal detail the app does not have. Caption it as an average estimate.
 
 **Rule source:** "How was this calculated?" on each figure.
 
@@ -80,7 +82,7 @@ Reasons appear in the chosen language. Add a note that the choice comes from fix
 
 **Then: "You pay" stacked bars.** One bar per vendor: the part the household pays and the subsidy part. The subsidy part is hatched when at risk.
 
-**Then: payback chart.** Years on the horizontal axis and rupees on the vertical. Lines show cumulative saving against the amount paid per quote, with payback marked. Limit to the 3 most relevant quotes.
+**Then: payback chart.** Years on the horizontal axis and rupees on the vertical. Each line shows the household position for one quote, and crossing ₹0 marks payback. Limit to 3 quotes, with the recommended one first.
 
 **Then: comparison cards.** Side by side on desktop and stacked on mobile.
 

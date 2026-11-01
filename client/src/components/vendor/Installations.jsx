@@ -32,7 +32,7 @@ export default function Installations({ v, show }) {
   const reqs = db.requests();
   const list = db.quotes().filter(q => isMyQuote(q, v) && q.status === 'accepted')
     .filter(q => filter === 'done' ? (q.installStage || 0) >= LAST_STAGE : (q.installStage || 0) < LAST_STAGE)
-    .sort((a, b) => new Date(b.acceptedAt || b.createdAt) - new Date(a.acceptedAt || a.createdAt));
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   async function move(q, dir) {
     const next = Math.max(0, Math.min(LAST_STAGE, (q.installStage || 0) + dir));
@@ -43,7 +43,7 @@ export default function Installations({ v, show }) {
 
   return (
     <section className="vsec space-y-5">
-      <SectionHead title="Installation tracking" sub="Jobs appear here when a household accepts your quote. Update the stage as work progresses — the customer sees it live.">
+      <SectionHead title="Installation tracking" sub="Jobs appear here when a household accepts your quote. Stages are saved in this browser for the prototype.">
         <div className="flex gap-2" role="group" aria-label="Filter installations">
           <Chip active={filter === 'active'} onClick={() => setFilter('active')}>Active</Chip>
           <Chip active={filter === 'done'} onClick={() => setFilter('done')}>Completed</Chip>
@@ -63,18 +63,17 @@ export default function Installations({ v, show }) {
             <div key={q.id} className="vcard bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <div className="font-bold text-gray-900">{req.name || 'Customer'}</div>
-                  <div className="text-sm text-gray-500 mt-0.5">📍 {req.address || '—'}</div>
-                  {req.phone && <a href={`tel:${req.phone}`} className="text-sm text-green-700 font-semibold">📞 {req.phone}</a>}
+                  <div className="font-bold text-gray-900">{req.householdName || 'Customer'}</div>
+                  <div className="text-sm text-gray-500 mt-0.5">📍 {req.addressText || '—'}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xl font-extrabold text-gray-900">{inr(q.price)}</div>
-                  <div className="text-xs text-gray-500">{quoteKw(q).toFixed(1)} kW · {q.panelBrand} · {q.inverterType}</div>
+                  <div className="text-xl font-extrabold text-gray-900">{inr(q.priceRupees)}</div>
+                  <div className="text-xs text-gray-500">{quoteKw(q).toFixed(1)} kW · {q.panelBrand || 'Panel not given'}</div>
                 </div>
               </div>
               <Stepper st={st} />
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-100">
-                <div className="text-xs text-gray-500">Accepted {timeAgo(q.acceptedAt || q.createdAt)}{last ? ` · last update ${timeAgo(last.at)}` : ''}</div>
+                <div className="text-xs text-gray-500">Quoted {timeAgo(q.createdAt)}{last ? ` · last update ${timeAgo(last.at)}` : ''}</div>
                 <div className="flex gap-2">
                   {st > 0 && <button onClick={() => move(q, -1)} className="px-3 py-2 rounded-xl text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600">↩ Step back</button>}
                   {st < LAST_STAGE

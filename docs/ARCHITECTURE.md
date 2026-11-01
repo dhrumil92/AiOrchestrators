@@ -24,6 +24,8 @@ Express API
 ```
 
 ## 3. Repository layout
+Data the server does not hold, namely the vendor catalogue, reviews, install stages and vendor profile, stays in browser storage as a prototype extra. It is outside the core demo flow.
+
 ```
 client/src/      pages/  components/  charts/  api/
 shared/          api.ts: types used by client and server
@@ -85,6 +87,7 @@ Base path: `/api`. JSON unless stated. Errors use `{ "error": { "code": "...", "
 | POST | `/quotes/:id/accept` | Accept quote and close request | H3, H4 |
 | GET | `/vendors/:id/quotes` | Vendor's quotes and statuses | V3 |
 | GET | `/rules` | Rules, formulas, assumptions and source links | All |
+| GET | `/calculator?kw=&monthlyUnits=` | Example subsidy, cost and payback for the calculator, using the scheme benchmark | AI tab |
 | GET | `/jobs/:id` | Job status (stretch) | H2 |
 
 List endpoints return bare arrays. `POST /requests`, `POST /requests/:id/photo`, `PATCH /requests/:id` and `POST /quotes/:id/accept` return a `ServiceRequest`. `POST /requests/:id/assessment` returns a `PhotoAssessment`. Payback values are unrounded, so display them to 1 decimal place.

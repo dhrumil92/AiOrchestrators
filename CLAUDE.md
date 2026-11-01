@@ -13,12 +13,17 @@ Rooftop solar marketplace for the SELC Hackathon. Households post needs, vendors
 If a task conflicts with these documents, stop and raise it. Change the contract first, then the code.
 
 ## Stack
-- `client/`: React, Vite, TypeScript, Leaflet, Recharts
+- `client/`: React, Vite, JavaScript, Tailwind, Leaflet, Recharts
 - `server/`: Node, Express, TypeScript
 - Database: PostgreSQL
 - AI: Gemini for photos, Groq for speech and text, free tiers only
 
 ## Commands
+Run these from `client/`:
+- `npm run dev`: start the app on port 5173. It forwards `/api` to the server
+- `npm test`: run client tests
+- `npm run build`: build for production
+
 Run these from `server/`:
 - `npm run dev`: start the API on port 4000
 - `npm test`: run server tests
@@ -36,12 +41,13 @@ Shared API types live in `shared/api.ts`.
 ## Non-negotiable rules
 1. **The LLM never produces numbers.** Subsidy, cost, payback, savings, scores and ranking come from `server/src/rules/`.
 2. **No rule value without a source.** Rule values belong in `server/src/rules/config.ts` and must match `docs/RULES.md`. Never invent a rule or use one from memory.
-3. **Vendor text is untrusted.** Ranking must never read notes. Never put flagged notes in an AI prompt.
-4. **All AI calls use `server/src/ai/client.ts`.** It validates output and applies fallback.
-5. **Label fallback results.** Saved AI output must never look live.
-6. **Protect the demo path.** Finish request -> quote -> accept before stretch work.
-7. **Keep secrets out of git.** Use `.env` and maintain `.env.example`.
-8. **Use plain household wording.** Follow the wording table in `DESIGN.md`.
+3. **The client never calculates rules.** Subsidy, savings, payback and ranking come from the API. `client/src/lib/chartData.js` may only arrange those figures for display.
+4. **Vendor text is untrusted.** Ranking must never read notes. Never put flagged notes in an AI prompt.
+5. **All AI calls use `server/src/ai/client.ts`.** It validates output and applies fallback.
+6. **Label fallback results.** Saved AI output must never look live.
+7. **Protect the demo path.** Finish request -> quote -> accept before stretch work.
+8. **Keep secrets out of git.** Use `.env` and maintain `.env.example`.
+9. **Use plain household wording.** Follow the wording table in `DESIGN.md`.
 
 ## Ownership
 | Role | Owns |

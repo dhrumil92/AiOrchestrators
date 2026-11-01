@@ -44,7 +44,7 @@ export default function Landing({ name, setName, onPick }) {
             One marketplace for rooftop solar: households get competing quotes and AI advice, installers find customers and manage every job.
           </p>
           <div className="mt-6 grid grid-cols-3 gap-3 max-w-lg">
-            {[['300', 'free units\nper month', 'border-yellow-100'], ['₹78K', 'max govt.\nsubsidy', 'border-green-100'], ['25+', 'years of\nclean power', 'border-yellow-100']].map(([n, l, b]) => (
+            {[['300', 'units a month\nscheme aim', 'border-yellow-100'], ['₹78K', 'max govt.\nsubsidy', 'border-green-100'], ['25+', 'years of\nclean power', 'border-yellow-100']].map(([n, l, b]) => (
               <div key={n} className={`bg-white/80 rounded-2xl border ${b} p-3 text-center shadow-sm`}><div className="grad-text font-extrabold text-xl">{n}</div><div className="text-xs text-gray-500 leading-tight whitespace-pre-line">{l}</div></div>
             ))}
           </div>

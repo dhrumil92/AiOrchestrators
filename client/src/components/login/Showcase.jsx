@@ -53,21 +53,21 @@ const Steps = ({ steps, title = 'How it works', className }) => (
 
 export function HouseholdShowcase() {
   const benefits = [
-    ['⚡', 'Free Electricity', 'Up to 300 units/month free under PM Surya Ghar.', '#fef3c7'],
+    ['⚡', 'Free Electricity', 'The scheme aims at free or low-cost power, up to 300 units a month.', '#fef3c7'],
     ['💰', 'Big Subsidy', '₹30,000/kW for 2 kW, up to ₹78,000 for 3 kW+.', '#d1fae5'],
-    ['📉', 'Lower Bills', 'Cut your monthly electricity bill by up to 90%.', '#dcfce7'],
+    ['📉', 'Lower Bills', 'Lower your monthly electricity bill with your own power.', '#dcfce7'],
     ['🔁', 'Earn from Surplus', 'Net metering sends extra power to the grid for credit.', '#fef9c3'],
-    ['🌍', 'Go Green', 'A 3 kW system avoids ~3 tonnes of CO₂ every year.', '#dcfce7'],
+    ['🌍', 'Go Green', 'Clean electricity from your own rooftop.', '#dcfce7'],
     ['🛠️', 'Low Maintenance', 'Just occasional cleaning. Panels last 25+ years.', '#fef3c7'],
   ];
   return (
     <div className="space-y-5">
       <Carousel badge="🇮🇳 PM Surya Ghar Muft Bijli Yojana" shadow="shadow-amber-200/60" slides={[
-        { img: 'photo-1509391366360-2e959784a276', emoji: '☀️', title: 'Power your home with the sun', sub: 'Up to 300 units of free electricity every month', grad: 'linear-gradient(135deg,#fbbf24,#f97316)' },
+        { img: 'photo-1509391366360-2e959784a276', emoji: '☀️', title: 'Power your home with the sun', sub: 'Free or low-cost power, up to 300 units a month', grad: 'linear-gradient(135deg,#fbbf24,#f97316)' },
         { img: 'photo-1508514177221-188b1cf16e9d', emoji: '🏠', title: 'Up to ₹78,000 Govt. subsidy', sub: 'Credited directly to your bank account under PM Surya Ghar', grad: 'linear-gradient(135deg,#34d399,#059669)' },
         { img: 'photo-1497440001374-f26997328c1b', emoji: '🌱', title: 'Clean energy for 25+ years', sub: 'Cut your bills and your carbon footprint together', grad: 'linear-gradient(135deg,#86efac,#16a34a)' },
       ]} />
-      <StatStrip border="border-amber-100" items={[['300', 'free units\nper month'], ['₹78K', 'max\nsubsidy'], ['2–4', 'years to\nrecover cost'], ['25+', 'years of\nfree power']]} />
+      <StatStrip border="border-amber-100" items={[['300', 'free units\nper month'], ['₹78K', 'max\nsubsidy'], ['25+', 'years of\nfree power']]} />
       <div>
         <h3 className="text-gray-800 font-extrabold text-lg mb-3">Why go solar? ☀️</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">

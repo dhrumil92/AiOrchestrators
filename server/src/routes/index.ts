@@ -2,10 +2,18 @@ import { Router } from 'express';
 import type { Vendor } from '../../../shared/api.js';
 import { transcribeAndExtract } from '../ai/index.js';
 import { pool } from '../db/pool.js';
+import { calculateExample } from '../rules/calculations.js';
 import { RULE_CATALOG } from '../rules/catalog.js';
 import { acceptQuote, listVendorQuotes } from '../services/quotes.js';
 import { requestsRouter } from './requests.js';
-import { audioFile, audioFilename, audioUpload, idParam, voiceBody } from './validation.js';
+import {
+  audioFile,
+  audioFilename,
+  audioUpload,
+  calculatorQuery,
+  idParam,
+  voiceBody,
+} from './validation.js';
 
 export const apiRouter = Router();
 
@@ -30,6 +38,11 @@ apiRouter.get('/health', async (_req, res) => {
 
 apiRouter.get('/rules', (_req, res) => {
   res.json(RULE_CATALOG);
+});
+
+apiRouter.get('/calculator', (req, res) => {
+  const { kw, monthlyUnits } = calculatorQuery.parse(req.query);
+  res.json(calculateExample(kw, monthlyUnits));
 });
 
 apiRouter.get('/vendors', async (_req, res) => {

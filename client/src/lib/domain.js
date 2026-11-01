@@ -1,5 +1,6 @@
-import { db } from './storage.js';
-import { normPhone, GSTIN_RE, EMAIL_RE, estimateKw, cityOf, inr, genId } from './utils.js';
+import { db, refreshMarket } from './storage.js';
+import { DEMO_REQUEST_ID, api } from './api.js';
+import { normPhone, GSTIN_RE, EMAIL_RE, cityOf, inr, genId } from './utils.js';
 
 export const INSTALL_STAGES = ['Quote accepted', 'Site survey', 'Design & DISCOM approval', 'Installation', 'Net metering & commissioning', 'Completed'];
 export const LAST_STAGE = INSTALL_STAGES.length - 1;
@@ -12,34 +13,30 @@ export const PRODUCT_CATS = {
   other:    { label: 'Accessory',      icon: '🧰', unit: '' },
 };
 
-export const vendorIdFromPhone = p => 'v_' + normPhone(p);
-export const householdIdFromPhone = p => 'h_' + normPhone(p);
-
 // ---------- identity ----------
+// The demo has no real login. A household sees the seeded demo request plus any it posted in this
+// browser, and a vendor signs in as one of the vendors on the server.
 export function currentHousehold(session) {
   if (!session || session.role !== 'household') return null;
-  const phone = session.profile?.phone || '';
-  return { id: householdIdFromPhone(phone), phone, name: session.name };
+  return { id: 'demo-household', name: session.name };
 }
 export function currentVendor(session) {
   if (!session || session.role !== 'vendor') return null;
-  const p = session.profile || {};
-  const id = vendorIdFromPhone(p.phone);
-  const v = { id, phone: p.phone || '', shop: p.shop || '', contactName: p.contactName || session.name || '',
-    email: '', gst: '', reg: '', area: '', years: '', address: '', about: '', ...(db.vendors()[id] || {}) };
-  v.displayName = v.shop || v.contactName || 'Vendor';
+  const server = db.vendorList().find(x => x.id === session.vendorId);
+  if (!server) return null;
+  const v = { id: server.id, phone: '', shop: server.name, contactName: server.name, email: '', gst: '', reg: '', area: server.city, years: '', address: '', about: '', ...(db.vendors()[server.id] || {}) };
+  v.displayName = server.name;
   return v;
 }
 
 // ---------- ownership ----------
-export const quoteVendorId = q => q.vendorId || vendorIdFromPhone(q.vendorPhone);
-export const isMyQuote = (q, v) => !!v && quoteVendorId(q) === v.id;
+export const isMyQuote = (q, v) => !!v && q.vendorId === v.id;
 export const acceptedQuoteFor = (reqId, quotes = db.quotes()) => quotes.find(q => q.requestId === reqId && q.status === 'accepted');
-export function isMyRequest(req, h) {
-  if (!h || !req) return false;
-  return req.householdId ? req.householdId === h.id : normPhone(req.phone) === normPhone(h.phone);
-}
-export const myRequests = h => (h ? db.requests().filter(r => isMyRequest(r, h)) : []);
+export const myRequests = h => {
+  if (!h) return [];
+  const mine = new Set([DEMO_REQUEST_ID, ...db.myRequestIds()]);
+  return db.requests().filter(r => mine.has(r.id));
+};
 
 // ---------- verification ----------
 export function verificationChecks(v) {
@@ -58,7 +55,7 @@ export function vendorStats(v) {
   const reqs = db.requests(), all = db.quotes();
   const mine = all.filter(q => isMyQuote(q, v));
   const awardedIds = new Set(all.filter(q => q.status === 'accepted').map(q => q.requestId));
-  const openReqs = reqs.filter(r => !awardedIds.has(r.id));
+  const openReqs = reqs.filter(r => r.status === 'open');
   const notQuoted = openReqs.filter(r => !mine.some(q => q.requestId === r.id));
   const won = mine.filter(q => q.status === 'accepted');
   const pending = mine.filter(q => q.status !== 'accepted' && !awardedIds.has(q.requestId));
@@ -74,15 +71,14 @@ export function vendorStats(v) {
 export function buildNotifications(v) {
   const reqs = db.requests(), all = db.quotes(), out = [];
   reqs.forEach(r => out.push({ id: 'r' + r.id, at: r.createdAt, icon: '📥', title: 'New solar enquiry',
-    text: `~${estimateKw(r.monthlyBill)} kW system in ${cityOf(r.address)} · bill ${inr(r.monthlyBill)}/mo`, go: 'enquiries' }));
+    text: `${r.monthlyUnits} units a month in ${cityOf(r.addressText)} · budget ${inr(r.budgetRupees)}`, go: 'enquiries' }));
   all.filter(q => isMyQuote(q, v)).forEach(q => {
     const r = reqs.find(x => x.id === q.requestId);
-    const who = r ? r.name.split(' ')[0] : 'A household';
-    if (q.status === 'accepted' && q.acceptedAt) {
-      out.push({ id: 'a' + q.id, at: q.acceptedAt, icon: '🏆', title: 'Quote accepted!', text: `${who} accepted your quote of ${inr(q.price)}. Schedule the site survey.`, go: 'installations' });
-    } else {
-      const acc = all.find(x => x.requestId === q.requestId && x.status === 'accepted');
-      if (acc?.acceptedAt) out.push({ id: 'l' + q.id, at: acc.acceptedAt, icon: 'ℹ️', title: 'Enquiry awarded to another vendor', text: `${who}'s request in ${cityOf(r?.address)} chose a different quote.`, go: 'enquiries' });
+    const who = r ? r.householdName.split(' ')[0] : 'A household';
+    if (q.status === 'accepted') {
+      out.push({ id: 'a' + q.id, at: q.createdAt, icon: '🏆', title: 'Quote accepted!', text: `${who} accepted your quote of ${inr(q.priceRupees)}. Schedule the site survey.`, go: 'installations' });
+    } else if (q.status === 'not_selected') {
+      out.push({ id: 'l' + q.id, at: q.createdAt, icon: 'ℹ️', title: 'Enquiry awarded to another vendor', text: `${who}'s request in ${cityOf(r?.addressText)} chose a different quote.`, go: 'enquiries' });
     }
   });
   db.reviews().filter(x => x.vendorId === v.id).forEach(rv => out.push({ id: 'v' + rv.id, at: rv.createdAt, icon: '⭐', title: `New ${rv.rating}-star review`,
@@ -95,47 +91,16 @@ export function unreadCount(v) {
 }
 
 // ---------- actions ----------
-export function acceptQuote(qid) {
-  const all = db.quotes();
-  const q = all.find(x => x.id === qid);
-  if (!q || all.some(x => x.requestId === q.requestId && x.status === 'accepted')) return false;
-  const now = new Date().toISOString();
-  Object.assign(q, { status: 'accepted', acceptedAt: now, installStage: 0, stageLog: [{ stage: 0, at: now }] });
-  all.forEach(x => { if (x.requestId === q.requestId && x.id !== q.id) x.status = 'declined'; });
-  db.saveQuotes(all);
-  const reqs = db.requests();
-  const r = reqs.find(x => x.id === q.requestId);
-  if (r) { r.status = 'awarded'; r.acceptedQuoteId = q.id; db.saveRequests(reqs); }
-  return true;
+/** Accepts on the server, which closes the request. Throws ApiError if it is already closed. */
+export async function acceptQuote(qid) {
+  await api.acceptQuote(qid);
+  await refreshMarket();
 }
 export function setStage(qid, stage) {
-  const all = db.quotes();
-  const q = all.find(x => x.id === qid);
-  if (!q) return;
-  q.installStage = Math.max(0, Math.min(LAST_STAGE, stage));
-  q.stageLog = (q.stageLog || []).concat({ stage: q.installStage, at: new Date().toISOString() });
-  db.saveQuotes(all);
-}
-
-// ---------- demo data (testing only) ----------
-export function loadSampleData(session) {
-  const hh = currentHousehold(session);
-  const day = 86400000;
-  const req1 = { id: 'demo001', name: 'Rajesh Sharma', phone: '9876543210', address: '12 MG Road, Koramangala, Bangalore, Karnataka 560034',
-    lat: 12.9352, lng: 77.6245, monthlyBill: 3200, budget: 250000, roofArea: 600, photo: null, createdAt: new Date(Date.now() - day * 2).toISOString(), status: 'open' };
-  const req2 = { id: 'demo002', name: 'Priya Patel', phone: '9123456789', address: '45 Satellite Road, Ahmedabad, Gujarat 380015',
-    lat: 23.0225, lng: 72.5714, monthlyBill: 1800, budget: 150000, roofArea: 350, photo: null, createdAt: new Date(Date.now() - day).toISOString(), status: 'open' };
-  if (hh) { req1.householdId = hh.id; req2.householdId = hh.id; }   // a household sees the samples as its own
-  const q = (id, requestId, vendorName, vendorPhone, price, panelBrand, panelWatts, numPanels, inverterBrand, timeline, notes, ago) =>
-    ({ id, requestId, vendorName, vendorPhone, price, panelBrand, panelWatts, numPanels, inverterBrand, inverterType: 'On-grid', warranty: 25, timeline, notes, createdAt: new Date(Date.now() - ago).toISOString() });
-  const quotes = [
-    q('q001', 'demo001', 'SunPower Solutions', '9900112233', 210000, 'Waaree', 540, 6, 'Havells', '3 weeks', 'DCR compliant panels. Includes net metering paperwork assistance.', 43200000),
-    q('q002', 'demo001', 'GreenEarth Solar', '9811223344', 185000, 'Adani Solar', 500, 6, 'Growatt', '2 weeks', 'Budget-friendly option. Same quality output.', 21600000),
-    q('q003', 'demo002', 'Solar India Pvt Ltd', '9988776655', 125000, 'Vikram Solar', 440, 4, 'Solis', '10 days', 'Fast installation. State-authorized installer.', 7200000),
-  ];
-  const reqs = db.requests(), qs = db.quotes();
-  if (!reqs.find(r => r.id === 'demo001')) db.saveRequests([...reqs, req1, req2]);
-  if (!qs.find(x => x.id === 'q001')) db.saveQuotes([...qs, ...quotes]);
+  const all = db.stages();
+  const next = Math.max(0, Math.min(LAST_STAGE, stage));
+  all[qid] = { stage: next, log: [...(all[qid]?.log || []), { stage: next, at: new Date().toISOString() }] };
+  db.saveStages(all);
 }
 
 export { genId };

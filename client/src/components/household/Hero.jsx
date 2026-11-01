@@ -43,11 +43,11 @@ export default function Hero({ firstName, go }) {
           </div>
           <div className="float-a absolute -left-2 sm:-left-5 bottom-6 bg-white rounded-2xl shadow-xl px-4 py-3 flex items-center gap-3 border border-yellow-100">
             <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center text-xl" aria-hidden="true">⚡</div>
-            <div><div className="font-extrabold text-gray-900 leading-none">300 units</div><div className="text-xs text-gray-500 mt-1">free every month</div></div>
+            <div><div className="font-extrabold text-gray-900 leading-none">Up to 300 units</div><div className="text-xs text-gray-500 mt-1">the scheme aims to cover</div></div>
           </div>
           <div className="float-b absolute -right-2 sm:-right-4 top-6 bg-white rounded-2xl shadow-xl px-4 py-3 flex items-center gap-3 border border-green-100">
             <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center text-xl" aria-hidden="true">🌍</div>
-            <div><div className="font-extrabold text-gray-900 leading-none">−3 t CO₂</div><div className="text-xs text-gray-500 mt-1">per year (3 kW)</div></div>
+            <div><div className="font-extrabold text-gray-900 leading-none">Clean power</div><div className="text-xs text-gray-500 mt-1">from your own roof</div></div>
           </div>
         </Reveal>
       </div>

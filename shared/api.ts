@@ -221,3 +221,12 @@ export interface RuleEntry {
   sourceSection: string | null;
   isAssumption: boolean;
 }
+
+export interface CalculatorResult {
+  /** Scheme benchmark cost from 2024. An example cost, not a market price. */
+  benchmarkRupees: number;
+  subsidyRupees: number;
+  amountYouPayRupees: number;
+  yearlySavingRupees: number;
+  paybackYears: number | null;
+}

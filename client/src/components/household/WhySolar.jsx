@@ -1,11 +1,11 @@
 import { Icon, Reveal } from '../ui/bits.jsx';
 
 const CARDS = [
-  ['rupee', 'Save on Electricity Bills', 'Generate your own power and get up to 300 units free every month under PM Surya Ghar.', 'Up to 90% lower bills'],
+  ['rupee', 'Save on Electricity Bills', 'Generate your own power. The scheme aims to provide free or low-cost electricity up to 300 units a month.', 'Lower monthly bills'],
   ['leaf', 'Environment Friendly', 'Silent, clean electricity straight from the sun — no fuel, no smoke, no noise.', '100% clean energy'],
-  ['globe', 'Reduce Carbon Footprint', 'A 3 kW rooftop system avoids about 3 tonnes of CO₂ a year — like planting 100+ trees.', '~3 t CO₂ saved / year'],
+  ['globe', 'Reduce Carbon Footprint', 'Every unit your roof makes is a unit you do not need to draw from the grid.', 'Lower emissions'],
   ['wrench', 'Low Maintenance', 'No moving parts. An occasional wash keeps panels efficient for decades.', '25-yr panel life'],
-  ['trend', 'Long-Term Savings', "With a subsidy of up to ₹78,000, most systems pay for themselves in about 2–4 years, then it's free power.", '~2–4 yr payback'],
+  ['trend', 'Long-Term Savings', 'With a subsidy of up to ₹78,000, the app works out your own money-back time from each real quote.', 'Payback per quote'],
   ['zap', 'Energy Independence', 'Depend less on the grid and rising tariffs. Net metering credits you for surplus power.', 'Net-metering credits'],
 ];
 
@@ -42,7 +42,7 @@ export default function WhySolar({ go }) {
 }
 
 export function SubsidyRef() {
-  const rows = [['1 kW', '₹30,000', '~₹25K net'], ['2 kW', '₹60,000', '~₹50K net'], ['3 kW', '₹78,000', '~₹87K net']];
+  const rows = [['1 kW', '₹30,000', '₹30,000 per kW'], ['2 kW', '₹60,000', '₹30,000 per kW'], ['3 kW', '₹78,000', 'Next kW at ₹18,000']];
   return (
     <div id="subsidy-ref" data-hhsec className="bg-white rounded-2xl shadow-md p-5">
       <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">🇮🇳 PM Surya Ghar Subsidy Reference</h3>
@@ -58,6 +58,7 @@ export function SubsidyRef() {
           <div className="text-xl font-bold text-amber-800">₹78,000</div><div className="text-amber-600 text-xs mt-1">Capped here</div>
         </div>
       </div>
+      <p className="text-xs text-gray-500 mt-3">Panels must be made in India to qualify. State subsidies are not included. <a className="underline text-green-700" href="https://solar.delhi.gov.in/public/assets/solar/PMSG_Guidelines_for_Residential_CFA_Capex_Mode.pdf" target="_blank" rel="noopener noreferrer">MNRE guidelines, section 5</a></p>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { QuoteFacts } from '../../../shared/api.js';
 import {
   benchmarkCost,
+  calculateExample,
   calculatePayback,
   calculateSize,
   calculateSubsidy,
@@ -158,5 +159,18 @@ describe('ranking', () => {
     const result = rankQuotes([quoteA, quoteB, attacker], context);
     expect(result.recommendedQuoteId).toBe('a');
     expect(result.evaluations.find((e) => e.quoteId === 'c')!.score).toBe(byId.c.score);
+  });
+});
+
+describe('calculator example', () => {
+  it('uses the scheme benchmark as the example cost', () => {
+    const result = calculateExample(2.5, 300);
+    expect(result).toMatchObject({
+      benchmarkRupees: 122_500,
+      subsidyRupees: 69_000,
+      amountYouPayRupees: 53_500,
+      yearlySavingRupees: 14_520,
+    });
+    expect(result.paybackYears).toBeCloseTo(3.7, 1);
   });
 });

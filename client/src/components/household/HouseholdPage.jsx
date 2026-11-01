@@ -57,9 +57,9 @@ export default function HouseholdPage({ active }) {
       </nav>
       <Hero firstName={(session?.name || '').split(' ')[0]} go={go} />
       <WhySolar go={go} />
-      <RequestForm household={household} profile={session?.profile || {}} active={active} onPosted={() => setTimeout(() => go('my-requests-section'), 50)} />
+      <RequestForm profile={session?.profile || {}} active={active} onPosted={() => setTimeout(() => go('my-requests-section'), 50)} />
       <SubsidyRef />
-      <MyRequests requests={requests} household={household} />
+      <MyRequests requests={requests} />
     </div>
   );
 }

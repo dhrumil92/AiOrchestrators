@@ -104,3 +104,21 @@ export function benchmarkCost(kw: number): number {
   const beyond = Math.max(kw - CFA_FIRST_SLAB_KW, 0);
   return BENCHMARK_COST.firstSlabPerKw * first + BENCHMARK_COST.secondSlabPerKw * Math.max(second, beyond);
 }
+
+/**
+ * Example figures for the calculator, using the Gujarat rates and the scheme benchmark as the
+ * system cost. It assumes eligible panels, since no real quote is involved.
+ */
+export function calculateExample(kw: number, monthlyUnits: number) {
+  const benchmarkRupees = benchmarkCost(kw);
+  const subsidyRupees = calculateSubsidy(kw, 'GJ', true);
+  const amountYouPayRupees = benchmarkRupees - subsidyRupees;
+  const yearlySavingRupees = calculateYearlySaving(monthlyUnits, kw);
+  return {
+    benchmarkRupees,
+    subsidyRupees,
+    amountYouPayRupees,
+    yearlySavingRupees,
+    paybackYears: calculatePayback(amountYouPayRupees, yearlySavingRupees),
+  };
+}

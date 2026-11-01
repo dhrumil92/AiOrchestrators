@@ -41,7 +41,7 @@ export default function Profile({ v }) {
     if (email && !EMAIL_RE.test(email)) return toast('Please enter a valid email address.', 'error');
     if (gst && !GSTIN_RE.test(gst)) return toast('GSTIN format looks incorrect (15 characters, e.g. 22AAAAA0000A1Z5).', 'error');
     const vendors = db.vendors();
-    vendors[v.id] = { ...(vendors[v.id] || {}), shop, contactName, phone: v.phone, email, gst, reg: t('reg'), area: t('area'), years: t('years'),
+    vendors[v.id] = { ...(vendors[v.id] || {}), shop, contactName, phone: t('phone'), email, gst, reg: t('reg'), area: t('area'), years: t('years'),
       address: t('address'), about: t('about'), updatedAt: new Date().toISOString() };
     db.saveVendors(vendors);
     const s = db.session();
@@ -68,7 +68,7 @@ export default function Profile({ v }) {
         <form onSubmit={save} noValidate className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 grid sm:grid-cols-2 gap-4">
           {inp('shop', 'Shop / company name', { placeholder: 'Leave blank if independent' })}
           {inp('contactName', 'Contact name *')}
-          {inp('phone', 'Phone (login ID)', { readOnly: true, className: 'bg-gray-50 text-gray-500' })}
+          {inp('phone', 'Phone')}
           {inp('email', 'Business email', { type: 'email' })}
           {inp('gst', 'GSTIN', { maxLength: 15, placeholder: '15-character GSTIN', className: 'uppercase' })}
           {inp('reg', 'DISCOM / MNRE registration no.')}

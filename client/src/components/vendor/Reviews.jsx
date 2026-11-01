@@ -40,7 +40,7 @@ export default function Reviews({ v }) {
                     <div className="w-10 h-10 rounded-full bg-yellow-100 text-yellow-800 font-bold flex items-center justify-center" aria-hidden="true">{(r.reviewerName || '?')[0]}</div>
                     <div>
                       <div className="font-semibold text-gray-900">{r.reviewerName}</div>
-                      <div className="text-xs text-gray-500">{timeAgo(r.createdAt)}{req ? ' · ' + cityOf(req.address) : ''}{q ? ' · ' + quoteKw(q).toFixed(1) + ' kW' : ''}</div>
+                      <div className="text-xs text-gray-500">{timeAgo(r.createdAt)}{req ? ' · ' + cityOf(req.addressText) : ''}{q ? ' · ' + quoteKw(q).toFixed(1) + ' kW' : ''}</div>
                     </div>
                   </div>
                   <Stars value={r.rating} />

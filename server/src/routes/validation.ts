@@ -102,3 +102,8 @@ export function audioFilename(originalName: string): string {
   const extension = path.extname(originalName).toLowerCase();
   return `audio${/^\.[a-z0-9]{1,5}$/.test(extension) ? extension : '.webm'}`;
 }
+
+export const calculatorQuery = z.object({
+  kw: z.coerce.number().positive().max(100),
+  monthlyUnits: z.coerce.number().int().positive().max(100_000),
+});
