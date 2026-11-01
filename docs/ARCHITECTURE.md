@@ -205,6 +205,11 @@ Another user's record returns 404, the same as a missing record, so ids cannot b
 
 Limits: email is not verified.
 
+### Running in production
+One Docker image serves the API and the built client on port 4000 (`docker build -t roofsolar .`). Set these on the host: `DATABASE_URL`, `NODE_ENV=production`, `TRUST_PROXY=1` behind one proxy, `APP_URL` to the public https address, `RESEND_API_KEY` and `EMAIL_FROM` for reset emails, and the AI keys. Run `npm run db:migrate` on each release, and never `db:seed`, which wipes all accounts.
+
+The API sends security headers (helmet) and limits requests per address: 300 a minute overall, 30 login, signup and password calls per 15 minutes, 5 reset emails an hour and 60 AI calls an hour. Photos are still saved on local disk (`server/uploads`), so mount a persistent volume there or move storage to object storage.
+
 ## 10. Security and privacy basics
 - Keep API keys in `.env` on the server only.
 - Validate all input, including file type and size.

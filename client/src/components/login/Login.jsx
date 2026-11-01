@@ -6,97 +6,158 @@ import { useToast } from '../ui/Toast.jsx';
 import Landing from './Landing.jsx';
 import { HouseholdShowcase, VendorShowcase } from './Showcase.jsx';
 
-function AuthStep({ role, initialName, onBack }) {
+const PATHS = {
+  user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
+  building: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M9 8h2M13 8h2M9 12h2M13 12h2M10 21v-5h4v5" /></>,
+  pin: <><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11Z" /><circle cx="12" cy="10" r="2.5" /></>,
+  mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
+  lock: <><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></>,
+};
+
+/** A labelled input with a leading icon and an inline error. */
+function Field({ id, label, icon, error, tint, right, ...input }) {
+  const ring = error ? 'border-red-400 bg-red-50/40 focus:ring-red-100' : tint;
+  return (
+    <div>
+      <label htmlFor={id} className="text-gray-700 text-sm font-semibold mb-1.5 block">{label}</label>
+      <div className="relative">
+        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{PATHS[icon]}</svg>
+        <input id={id} {...input} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-err` : undefined}
+          className={`w-full text-gray-900 placeholder-gray-400 rounded-xl pl-11 ${right ? 'pr-16' : 'pr-4'} py-3 text-sm border focus:outline-none focus:bg-white focus:ring-4 transition ${ring}`} />
+        {right}
+      </div>
+      {error && <p id={`${id}-err`} role="alert" className="mt-1 text-xs font-semibold text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+/** A hint while choosing a password. The server only requires 8 characters. */
+function strength(pw) {
+  if (pw.length < 8) return 0;
+  const kinds = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter(r => r.test(pw)).length;
+  return pw.length >= 12 && kinds >= 3 ? 3 : kinds >= 2 ? 2 : 1;
+}
+const STRENGTH = [['Too short', 'bg-red-400', 'text-red-600'], ['Okay', 'bg-amber-400', 'text-amber-700'], ['Good', 'bg-lime-500', 'text-lime-700'], ['Strong', 'bg-green-600', 'text-green-700']];
+
+function AuthStep({ role, initialMode, onBack, onSwitchRole }) {
   const toast = useToast();
   const isHH = role === 'household';
-  const [mode, setMode] = useState('signup');
-  const [f, setF] = useState({ name: initialName || '', city: '', email: '', password: '' });
+  const [mode, setMode] = useState(initialMode);
+  const [f, setF] = useState({ name: '', city: '', email: '', password: '' });
+  const [errors, setErrors] = useState({});
+  const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resetSent, setResetSent] = useState(false);
-  const set = k => e => setF(s => ({ ...s, [k]: e.target.value }));
+  const set = k => e => { setF(s => ({ ...s, [k]: e.target.value })); setErrors(s => ({ ...s, [k]: undefined })); };
   const signingUp = mode === 'signup';
   const forgot = mode === 'forgot';
-  const switchMode = m => { setMode(m); setResetSent(false); };
+  const switchMode = m => { setMode(m); setResetSent(false); setErrors({}); };
+  const otherRole = isHH ? 'vendor' : 'household';
 
   async function submit(e) {
     e.preventDefault();
     const name = f.name.trim(), city = f.city.trim(), email = f.email.trim();
-    if (!EMAIL_RE.test(email)) return toast('Enter a valid email address.', 'error');
-    if (forgot) {
-      setBusy(true);
-      try { await api.forgotPassword(email); setResetSent(true); }
-      catch (err) { toast(err.message, 'error'); }
-      finally { setBusy(false); }
-      return;
-    }
+    const bad = {};
+    if (!EMAIL_RE.test(email)) bad.email = 'Enter a valid email address.';
     if (signingUp) {
-      if (!name) return toast(isHH ? 'Please enter your name.' : 'Please enter your company name.', 'error');
-      if (!isHH && !city) return toast('Please enter your city.', 'error');
-      if (f.password.length < 8) return toast('Use at least 8 characters for your password.', 'error');
-    } else if (!f.password) return toast('Please enter your password.', 'error');
+      if (!name) bad.name = isHH ? 'Please enter your name.' : 'Please enter your company name.';
+      if (!isHH && !city) bad.city = 'Please enter your city.';
+      if (f.password.length < 8) bad.password = 'Use at least 8 characters.';
+    } else if (!forgot && !f.password) bad.password = 'Please enter your password.';
+    setErrors(bad);
+    if (Object.keys(bad).length) return;
     setBusy(true);
     try {
+      if (forgot) { await api.forgotPassword(email); setResetSent(true); return; }
       signIn(signingUp
         ? await api.signup({ role, name, email, password: f.password, ...(isHH ? {} : { city }) })
         : await api.login({ email, password: f.password }));
     } catch (err) {
       if (err.code === 'EMAIL_TAKEN') switchMode('login');
-      setF(s => ({ ...s, password: '' }));
+      if (!forgot) setF(s => ({ ...s, password: '' }));
       toast(err.code === 'EMAIL_TAKEN' ? 'That email already has an account. Please log in.' : err.message, 'error');
     } finally { setBusy(false); }
   }
 
-  const label = `${isHH ? 'text-amber-700' : 'text-green-700'} text-xs font-bold uppercase tracking-widest mb-1.5 block`;
-  const field = `w-full text-gray-800 placeholder-gray-400 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:bg-white transition ${isHH ? 'bg-amber-50/60 border border-amber-200' : 'bg-green-50/50 border border-green-200'}`;
-  const tab = on => `flex-1 py-2 rounded-lg text-sm font-bold transition ${on ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`;
+  const tint = isHH ? 'bg-amber-50/50 border-amber-200 focus:border-amber-500 focus:ring-amber-100' : 'bg-green-50/40 border-green-200 focus:border-green-600 focus:ring-green-100';
+  const tab = on => `flex-1 py-2 rounded-lg text-sm font-bold transition ${on ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`;
+  const roleTab = on => `flex-1 py-1.5 rounded-lg text-xs font-bold transition ${on ? (isHH ? 'bg-amber-400 text-gray-900' : 'bg-green-600 text-white') : 'text-gray-500 hover:text-gray-800'}`;
+  const level = strength(f.password);
+  const title = forgot ? 'Reset your password' : signingUp ? (isHH ? 'Create your household account' : 'Create your vendor account') : 'Welcome back';
+  const sub = forgot ? 'We will email you a link to choose a new password.'
+    : signingUp ? (isHH ? 'Post your need and get quotes from local installers.' : 'Quote on real enquiries and track every installation.')
+    : 'Log in to see your requests and quotes.';
   return (
     <div className="relative w-full max-w-6xl bounce-in my-auto">
+      <div className="flex items-center justify-between mb-5">
+        <button type="button" onClick={onBack} className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 transition">
+          <span aria-hidden="true">←</span> Back to home
+        </button>
+        <div className="flex items-center gap-2 text-gray-900 font-extrabold"><span className="text-2xl" aria-hidden="true">☀️</span> PM Surya Ghar</div>
+      </div>
       <div className="grid gap-6 items-start lg:grid-cols-[1.25fr_1fr]">
         <div>{isHH ? <HouseholdShowcase /> : <VendorShowcase />}</div>
-        <form onSubmit={submit} className="order-first lg:order-none bg-white border border-amber-100 rounded-3xl p-7 shadow-xl shadow-amber-200/50 lg:sticky lg:top-4" noValidate>
-          <div className="flex items-center gap-3 mb-5">
-            <button type="button" onClick={onBack} aria-label="Back" className="text-gray-500 hover:text-gray-800 text-2xl leading-none transition">←</button>
-            <h2 className="text-gray-800 font-extrabold text-xl">{isHH ? '🏠 Household account' : '🔧 Vendor account'}</h2>
-          </div>
-          {forgot ? (
-            <div className="mb-5">
-              <h3 className="text-gray-800 font-bold">Forgot your password?</h3>
-              <p className="text-sm text-gray-600 mt-1">Enter your account email. We will send you a link to choose a new password.</p>
+        <form onSubmit={submit} className={`order-first lg:order-none bg-white border rounded-3xl p-6 sm:p-8 shadow-xl lg:sticky lg:top-4 ${isHH ? 'border-amber-100 shadow-amber-200/50' : 'border-green-100 shadow-green-200/50'}`} noValidate>
+          {!forgot && (
+            <div className="flex gap-1 rounded-xl bg-gray-100 p-1 mb-6" role="group" aria-label="Account type">
+              <button type="button" onClick={() => !isHH && onSwitchRole('household', mode)} aria-pressed={isHH} className={roleTab(isHH)}>🏠 Household</button>
+              <button type="button" onClick={() => isHH && onSwitchRole('vendor', mode)} aria-pressed={!isHH} className={roleTab(!isHH)}>🔧 Vendor</button>
             </div>
-          ) : (
+          )}
+          <h2 className="text-gray-900 font-extrabold text-2xl tracking-tight">{title}</h2>
+          <p className="text-sm text-gray-500 mt-1 mb-6">{sub}</p>
+
+          {!forgot && (
             <div className="flex gap-1 rounded-xl bg-gray-100 p-1 mb-5" role="group" aria-label="Log in or sign up">
               <button type="button" onClick={() => switchMode('signup')} aria-pressed={signingUp} className={tab(signingUp)}>Sign up</button>
               <button type="button" onClick={() => switchMode('login')} aria-pressed={!signingUp} className={tab(!signingUp)}>Log in</button>
             </div>
           )}
+
           {forgot && resetSent ? (
             <div role="status" className="rounded-xl bg-green-50 border border-green-200 p-4 text-sm text-green-800">
               If <b>{f.email.trim()}</b> has an account, a reset link is on its way. It works for 1 hour. Check your spam folder too.
             </div>
           ) : (
-          <div className="space-y-4">
-            {signingUp && (
-              <div><label htmlFor="a-name" className={label}>{isHH ? 'Your name' : 'Company name'}</label>
-                <input id="a-name" value={f.name} onChange={set('name')} autoComplete={isHH ? 'name' : 'organization'} className={field} /></div>
-            )}
-            {signingUp && !isHH && (
-              <div><label htmlFor="a-city" className={label}>City</label>
-                <input id="a-city" value={f.city} onChange={set('city')} autoComplete="address-level2" className={field} /></div>
-            )}
-            <div><label htmlFor="a-email" className={label}>Email</label>
-              <input id="a-email" type="email" value={f.email} onChange={set('email')} autoComplete="email" className={field} /></div>
-            {!forgot && (
-              <div><label htmlFor="a-password" className={label}>Password</label>
-                <input id="a-password" type="password" value={f.password} onChange={set('password')} autoComplete={signingUp ? 'new-password' : 'current-password'} className={field} />
-                {signingUp && <p className="text-xs text-gray-500 mt-1">At least 8 characters</p>}
-                {mode === 'login' && <button type="button" onClick={() => switchMode('forgot')} className="text-xs font-semibold text-gray-600 hover:text-gray-900 underline mt-1.5">Forgot password?</button>}</div>
-            )}
-          </div>
+            <div className="space-y-4">
+              {signingUp && <Field id="a-name" label={isHH ? 'Your name' : 'Company name'} icon={isHH ? 'user' : 'building'} tint={tint} error={errors.name} value={f.name} onChange={set('name')} autoFocus
+                placeholder={isHH ? 'e.g. Ravi Kumar' : 'e.g. SunPower Solutions'} autoComplete={isHH ? 'name' : 'organization'} />}
+              {signingUp && !isHH && <Field id="a-city" label="City" icon="pin" tint={tint} error={errors.city} value={f.city} onChange={set('city')}
+                placeholder="e.g. Vadodara" autoComplete="address-level2" />}
+              <Field id="a-email" label="Email" icon="mail" tint={tint} error={errors.email} type="email" value={f.email} onChange={set('email')} autoFocus={!signingUp}
+                placeholder="you@example.com" autoComplete="email" />
+              {!forgot && (
+                <div>
+                  <Field id="a-password" label="Password" icon="lock" tint={tint} error={errors.password} type={show ? 'text' : 'password'} value={f.password} onChange={set('password')}
+                    placeholder={signingUp ? 'At least 8 characters' : 'Your password'} autoComplete={signingUp ? 'new-password' : 'current-password'}
+                    right={<button type="button" onClick={() => setShow(s => !s)} aria-pressed={show} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500 hover:text-gray-900 px-1">{show ? 'Hide' : 'Show'}</button>} />
+                  {signingUp && f.password && (
+                    <div className="mt-2" aria-live="polite">
+                      <div className="flex gap-1">{[0, 1, 2, 3].map(i => <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= level && (level > 0 || i === 0) ? STRENGTH[level][1] : 'bg-gray-200'}`} />)}</div>
+                      <p className={`mt-1 text-xs font-semibold ${STRENGTH[level][2]}`}>{STRENGTH[level][0]}</p>
+                    </div>
+                  )}
+                  {!signingUp && <button type="button" onClick={() => switchMode('forgot')} className="text-xs font-semibold text-gray-600 hover:text-gray-900 underline mt-2">Forgot password?</button>}
+                </div>
+              )}
+            </div>
           )}
+
           {!(forgot && resetSent) && (
             <button type="submit" disabled={busy} className="cta-primary mt-6 w-full py-3.5 rounded-2xl font-extrabold text-white text-base disabled:opacity-60">{busy ? 'Please wait…' : forgot ? 'Send reset link →' : signingUp ? 'Create account →' : 'Log in →'}</button>
           )}
           {forgot && <button type="button" onClick={() => switchMode('login')} className="mt-4 w-full text-sm font-semibold text-gray-600 hover:text-gray-900">← Back to log in</button>}
+
+          {!forgot && (
+            <p className="mt-5 text-center text-sm text-gray-500">
+              {signingUp ? 'Already have an account?' : 'New here?'}{' '}
+              <button type="button" onClick={() => switchMode(signingUp ? 'login' : 'signup')} className="font-bold text-green-700 hover:underline">{signingUp ? 'Log in' : 'Create an account'}</button>
+            </p>
+          )}
+          <ul className="mt-6 pt-5 border-t border-gray-100 space-y-2 text-xs text-gray-500">
+            <li className="flex gap-2"><span aria-hidden="true">🔒</span>Your password is stored encrypted, never as plain text.</li>
+            <li className="flex gap-2"><span aria-hidden="true">{isHH ? '🛡️' : '⚖️'}</span>{isHH ? 'Vendors see your city, not your phone or address, until you accept a quote.' : 'Quotes are ranked by fixed rules. Notes never affect the ranking.'}</li>
+          </ul>
         </form>
       </div>
     </div>
@@ -156,8 +217,7 @@ function ResetStep({ token, onDone }) {
 }
 
 export default function Login({ resetToken, onResetDone }) {
-  const [step, setStep] = useState(null);       // null | 'household' | 'vendor'
-  const [name, setName] = useState('');
+  const [step, setStep] = useState(null);       // null | { role: 'household' | 'vendor', mode: 'signup' | 'login' }
   const stars = useMemo(() => Array.from({ length: 80 }, (_, i) => {
     const size = Math.random() * 6 + 2;
     return { i, size, top: Math.random() * 100, left: Math.random() * 100, o: Math.random() * 0.35 + 0.1, d: Math.random() * 3 + 2, delay: Math.random() * 3 };
@@ -174,8 +234,8 @@ export default function Login({ resetToken, onResetDone }) {
       {resetToken
         ? <ResetStep token={resetToken} onDone={onResetDone} />
         : step
-        ? <AuthStep key={step} role={step} initialName={name} onBack={() => setStep(null)} />
-        : <Landing name={name} setName={setName} onPick={setStep} />}
+        ? <AuthStep key={step.role + step.mode} role={step.role} initialMode={step.mode} onBack={() => setStep(null)} onSwitchRole={(role, mode) => setStep({ role, mode })} />
+        : <Landing onPick={(role, mode) => setStep({ role, mode })} />}
     </div>
   );
 }

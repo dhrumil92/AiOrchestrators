@@ -6,6 +6,7 @@ import { RULE_CATALOG } from '../rules/catalog.js';
 import { currentUser, loadUser, requireAuth, requireRole } from '../auth/middleware.js';
 import { acceptQuote, listVendorQuotes } from '../services/quotes.js';
 import { authRouter } from './auth.js';
+import { aiLimiter } from './rateLimit.js';
 import { requestsRouter } from './requests.js';
 import {
   audioFile,
@@ -60,7 +61,7 @@ apiRouter.post('/quotes/:id/accept', requireRole('household'), async (req, res) 
   res.json(await acceptQuote(idParam.parse(req.params).id, currentUser(res)));
 });
 
-apiRouter.post('/voice/transcribe', audioUpload, async (req, res) => {
+apiRouter.post('/voice/transcribe', aiLimiter, audioUpload, async (req, res) => {
   const { language } = voiceBody.parse(req.body);
   const file = audioFile.parse(req.file);
   res.json(await transcribeAndExtract(file.buffer, audioFilename(file.originalname), language));

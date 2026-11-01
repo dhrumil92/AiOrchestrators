@@ -15,16 +15,17 @@ import {
   resetPasswordSchema,
   signupSchema,
 } from './validation.js';
+import { authLimiter, forgotPasswordLimiter } from './rateLimit.js';
 
 export const authRouter = Router();
 
-authRouter.post('/signup', async (req, res) => {
+authRouter.post('/signup', authLimiter, async (req, res) => {
   const user = await signup(signupSchema.parse(req.body));
   setSessionCookie(res, await createSession(user.id));
   res.status(201).json(user);
 });
 
-authRouter.post('/login', async (req, res) => {
+authRouter.post('/login', authLimiter, async (req, res) => {
   const user = await login(loginSchema.parse(req.body), req.ip ?? 'unknown');
   setSessionCookie(res, await createSession(user.id));
   res.json(user);
@@ -42,18 +43,18 @@ authRouter.get('/me', requireAuth, (_req, res) => {
 });
 
 // Always 204, so the reply does not reveal which emails have accounts.
-authRouter.post('/forgot-password', async (req, res) => {
+authRouter.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   await requestPasswordReset(forgotPasswordSchema.parse(req.body).email);
   res.status(204).end();
 });
 
-authRouter.post('/reset-password', async (req, res) => {
+authRouter.post('/reset-password', authLimiter, async (req, res) => {
   const user = await resetPassword(resetPasswordSchema.parse(req.body));
   setSessionCookie(res, await createSession(user.id));
   res.json(user);
 });
 
-authRouter.post('/change-password', requireAuth, async (req, res) => {
+authRouter.post('/change-password', requireAuth, authLimiter, async (req, res) => {
   await changePassword(currentUser(res), changePasswordSchema.parse(req.body), readSessionToken(req));
   res.status(204).end();
 });

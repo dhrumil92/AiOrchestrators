@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "dompurify": "3.2.6",
+    "dompurify": "3.4.17",
     "leaflet": "1.9.4",
     "marked": "15.0.12",
     "react": "19.1.0",

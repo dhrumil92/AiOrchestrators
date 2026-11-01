@@ -62,7 +62,7 @@ export function HouseholdShowcase() {
   ];
   return (
     <div className="space-y-5">
-      <Carousel badge="🇮🇳 PM Surya Ghar Muft Bijli Yojana" shadow="shadow-amber-200/60" slides={[
+      <Carousel badge="☀️ PM Surya Ghar Muft Bijli Yojana" shadow="shadow-amber-200/60" slides={[
         { img: 'photo-1509391366360-2e959784a276', emoji: '☀️', title: 'Power your home with the sun', sub: 'Free or low-cost power, up to 300 units a month', grad: 'linear-gradient(135deg,#fbbf24,#f97316)' },
         { img: 'photo-1508514177221-188b1cf16e9d', emoji: '🏠', title: 'Up to ₹78,000 Govt. subsidy', sub: 'Credited directly to your bank account under PM Surya Ghar', grad: 'linear-gradient(135deg,#34d399,#059669)' },
         { img: 'photo-1497440001374-f26997328c1b', emoji: '🌱', title: 'Clean energy for 25+ years', sub: 'Cut your bills and your carbon footprint together', grad: 'linear-gradient(135deg,#86efac,#16a34a)' },
