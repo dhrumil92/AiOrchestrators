@@ -9,7 +9,7 @@ import { Chip, SectionHead } from './common.jsx';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-function VendorMap({ v, active, onQuote, mapRef }) {
+function VendorMap({ v, active, onQuote, mapRef, focus }) {
   const version = useDB();
   const layer = useRef(null);
   const fitted = useRef(false);
@@ -51,15 +51,22 @@ function VendorMap({ v, active, onQuote, mapRef }) {
     if (bounds.length && !fitted.current) { try { m.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 }); fitted.current = true; } catch {} }
   }, [ready, version, mapRef, v.id]);
 
+  useEffect(() => {
+    if (ready && focus) mapRef.current?.setView([focus.lat, focus.lng], 15);
+  }, [ready, focus, mapRef]);
+
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3">
-      <LeafletMap active={active} style={{ height: 300 }} onReady={m => { mapRef.current = m; layer.current = L.layerGroup().addTo(m); setReady(true); }} />
+      <LeafletMap active={active} style={{ height: 380 }} onReady={m => { mapRef.current = m; layer.current = L.layerGroup().addTo(m); setReady(true); }} />
     </div>
   );
 }
 
 export default function Enquiries({ v, active, onQuote, show }) {
   const [filter, setFilter] = useState('all');
+  const [layout, setLayout] = useState('list');   // list | map
+  const [sort, setSort] = useState('new');        // new | budget | units
+  const [focus, setFocus] = useState(null);
   const mapRef = useRef(null);
   const mapBox = useRef(null);
   const all = db.quotes(), requests = db.requests();
@@ -69,11 +76,23 @@ export default function Enquiries({ v, active, onQuote, show }) {
     const acc = req.status === 'closed' ? (quotes.find(q => q.status === 'accepted') || { id: null }) : undefined;
     return { req, quotes, acc, mine: quotes.find(q => isMyQuote(q, v)) };
   });
-  const list = info.filter(i => filter === 'all' || (filter === 'new' && !i.acc && !i.mine) || (filter === 'quoted' && i.mine) || (filter === 'closed' && i.acc));
+  const matches = {
+    all: () => true,
+    new: i => !i.acc && !i.mine,
+    quoted: i => i.mine,
+    closed: i => i.acc,
+  };
+  const SORTS = {
+    new: () => 0,   // the list is already newest first
+    budget: (a, b) => b.req.budgetRupees - a.req.budgetRupees,
+    units: (a, b) => b.req.monthlyUnits - a.req.monthlyUnits,
+  };
+  const list = info.filter(matches[filter]).sort(SORTS[sort]);
 
   function viewOnMap(lat, lng) {
-    mapRef.current?.setView([lat, lng], 15);
-    mapBox.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setLayout('map');
+    setFocus({ lat, lng, nonce: Date.now() });
+    setTimeout(() => mapBox.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
   }
 
   return (
@@ -81,10 +100,25 @@ export default function Enquiries({ v, active, onQuote, show }) {
       <SectionHead title="Customer enquiries" sub="Solar requests posted by households. Send a quote to compete for the job.">
         <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full">{info.filter(i => !i.acc).length} open</span>
       </SectionHead>
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Filter enquiries">
-        {[['all', 'All'], ['new', 'Not quoted yet'], ['quoted', 'Quoted by me'], ['closed', 'Awarded']].map(([k, l]) => <Chip key={k} active={filter === k} onClick={() => setFilter(k)}>{l}</Chip>)}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter enquiries">
+          {[['all', 'All'], ['new', 'Not quoted yet'], ['quoted', 'Quoted by me'], ['closed', 'Awarded']].map(([k, l]) => <Chip key={k} active={filter === k} onClick={() => setFilter(k)}>{l} · {info.filter(matches[k]).length}</Chip>)}
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">Sort
+            <select value={sort} onChange={e => setSort(e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white">
+              <option value="new">Newest</option><option value="budget">Highest budget</option><option value="units">Most units</option>
+            </select>
+          </label>
+          <div className="flex gap-1 rounded-xl bg-gray-100 p-1" role="group" aria-label="Show as">
+            {[['list', '☰ List'], ['map', '🗺️ Map']].map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setLayout(k)} aria-pressed={layout === k}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition ${layout === k ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>{l}</button>
+            ))}
+          </div>
+        </div>
       </div>
-      <div ref={mapBox}><VendorMap v={v} active={active} onQuote={onQuote} mapRef={mapRef} /></div>
+      {layout === 'map' && <div ref={mapBox}><VendorMap v={v} active={active} onQuote={onQuote} mapRef={mapRef} focus={focus} /></div>}
       <div className="space-y-4">
         {!requests.length ? <EmptyState icon="📭" title="No household enquiries yet" text="New solar requests from households will appear here as soon as they are posted." />
           : !list.length ? <EmptyState icon="🔍" title="Nothing here" text="No enquiries match this filter." />

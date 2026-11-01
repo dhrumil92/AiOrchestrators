@@ -9,7 +9,7 @@ const CARDS = [
   ['zap', 'Energy Independence', 'Depend less on the grid and rising tariffs. Net metering credits you for surplus power.', 'Net-metering credits'],
 ];
 
-export default function WhySolar({ go }) {
+export default function WhySolar({ onPost }) {
   return (
     <section id="why-solar" data-hhsec className="py-4">
       <Reveal className="text-center max-w-2xl mx-auto">
@@ -35,7 +35,7 @@ export default function WhySolar({ go }) {
           <div className="text-xl sm:text-2xl font-extrabold">Ready to make the switch?</div>
           <div className="text-green-100 mt-1 text-sm sm:text-base">Post your rooftop details once — vendors near you will send quotes.</div>
         </div>
-        <button onClick={() => go('request-form-card')} className="shrink-0 bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold px-7 py-3.5 rounded-2xl shadow-lg transition hover:-translate-y-0.5">Post My Requirement →</button>
+        <button onClick={onPost} className="shrink-0 bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold px-7 py-3.5 rounded-2xl shadow-lg transition hover:-translate-y-0.5">Post My Requirement →</button>
       </Reveal>
     </section>
   );

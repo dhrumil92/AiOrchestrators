@@ -1,67 +1,115 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useDB } from '../../lib/storage.js';
-import { currentHousehold, myRequests } from '../../lib/domain.js';
+import { db, useDB } from '../../lib/storage.js';
+import { LAST_STAGE, currentHousehold, myRequests } from '../../lib/domain.js';
+import { VIEWS, summarize, viewFromHash } from '../../lib/householdView.js';
 import { useApp } from '../../AppContext.jsx';
-import Hero from './Hero.jsx';
-import WhySolar, { SubsidyRef } from './WhySolar.jsx';
+import Dashboard from './Dashboard.jsx';
 import EligibilityCheck from './EligibilityCheck.jsx';
-import RequestForm from './RequestForm.jsx';
 import MyRequests from './MyRequests.jsx';
+import RequestForm from './RequestForm.jsx';
+import WhySolar, { SubsidyRef } from './WhySolar.jsx';
 
-const SECTIONS = [['hh-overview', 'Overview'], ['why-solar', 'Benefits'], ['eligibility-card', 'Eligibility'], ['request-form-card', 'Post request'], ['subsidy-ref', 'Subsidy'], ['my-requests-section', 'My requests']];
+const TITLES = {
+  home: ['Home', 'Where you are and what to do next.'],
+  new: ['New request', 'Check you can get the subsidy, then tell vendors what you need.'],
+  requests: ['My requests', 'Your requests, vendor quotes and installation progress.'],
+  learn: ['Learn about solar', 'How the subsidy works and why solar pays off.'],
+};
+
+function PageHead({ view }) {
+  const [title, sub] = TITLES[view];
+  return (
+    <div className="mb-5">
+      <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900">{title}</h2>
+      <p className="text-gray-500 mt-1">{sub}</p>
+    </div>
+  );
+}
 
 export default function HouseholdPage({ active }) {
   useDB();
-  const { session } = useApp();
+  const { session, goTab } = useApp();
   const household = currentHousehold(session);
   const requests = myRequests(household);
-  const [current, setCurrent] = useState(SECTIONS[0][0]);
+  const sum = summarize(requests, db.quotes(), LAST_STAGE);
+  const [view, setView] = useState(() => viewFromHash(window.location.hash));
+  const [selectedId, setSelectedId] = useState(null);
 
-  const go = useCallback(id => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), []);
-
-  // Highlight the section currently on screen.
+  // The address bar follows the view, so the back button and shared links work.
   useEffect(() => {
     if (!active) return;
-    let ticking = false;
-    const update = () => {
-      ticking = false;
-      const line = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr-h')) || 112) + 90;
-      let cur = SECTIONS[0][0];
-      SECTIONS.forEach(([id]) => { const el = document.getElementById(id); if (el && el.getBoundingClientRect().top <= line) cur = id; });
-      if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 4) cur = SECTIONS[SECTIONS.length - 1][0];
-      setCurrent(cur);
-    };
-    const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } };
-    update();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); };
+    const onHash = () => setView(viewFromHash(window.location.hash));
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
   }, [active]);
 
-  // Keep the active pill visible in the horizontally scrolling menu.
-  useEffect(() => {
-    const b = document.querySelector(`[data-hh="${current}"]`);
-    const nav = b?.parentElement;
-    if (nav && (b.offsetLeft < nav.scrollLeft || b.offsetLeft + b.offsetWidth > nav.scrollLeft + nav.clientWidth)) nav.scrollLeft = b.offsetLeft - 16;
-  }, [current]);
+  const go = useCallback((next, requestId) => {
+    if (requestId) setSelectedId(requestId);
+    setView(next);
+    if (viewFromHash(window.location.hash) !== next) window.location.hash = `/${next}`;
+    window.scrollTo({ top: 0 });
+  }, []);
+  const goAdvisor = useCallback(() => goTab('ai'), [goTab]);
+
+  const badge = id => (id === 'requests' ? sum.toCompare : 0);
 
   return (
-    <div className="space-y-6">
-      <nav aria-label="Page sections" className="hh-subnav sticky z-40 -mx-4 px-4 py-2.5 bg-amber-50/90 backdrop-blur flex gap-2 overflow-x-auto" style={{ top: 'var(--hdr-h)' }}>
-        {SECTIONS.map(([id, label]) => (
-          <button key={id} data-hh={id} onClick={() => go(id)} aria-current={current === id ? 'true' : undefined}
-            className={`hh-pill shrink-0 text-xs sm:text-sm font-semibold px-4 py-1.5 rounded-full border border-gray-200 bg-white text-gray-700 ${current === id ? 'active' : ''}`}>
-            {label}
-            {id === 'my-requests-section' && requests.length > 0 && <span className="ml-1 text-xs font-bold px-1.5 py-0.5 rounded-full bg-yellow-400 text-gray-900">{requests.length}</span>}
+    <div className="lg:grid lg:grid-cols-[220px_1fr] lg:gap-8 pb-24 lg:pb-0">
+      <aside className="hidden lg:block">
+        <nav aria-label="Household sections" className="sticky space-y-1" style={{ top: 'calc(var(--hdr-h) + 24px)' }}>
+          {VIEWS.map(([id, label, icon]) => (
+            <button key={id} type="button" onClick={() => go(id)} aria-current={view === id ? 'page' : undefined}
+              className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-left transition ${view === id ? 'bg-green-600 text-white shadow-md shadow-green-200' : 'text-gray-700 hover:bg-white'}`}>
+              <span className="text-lg" aria-hidden="true">{icon}</span>
+              <span className="flex-1 whitespace-nowrap">{label}</span>
+              {badge(id) > 0
+                ? <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-400 text-gray-900" title="Requests with quotes to compare">{badge(id)} new</span>
+                : id === 'requests' && requests.length > 0 && <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${view === id ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-600'}`}>{requests.length}</span>}
+            </button>
+          ))}
+          <button type="button" onClick={goAdvisor} className="mt-4 w-full rounded-2xl p-4 text-left text-white shadow-md hover:-translate-y-0.5 transition" style={{ background: 'linear-gradient(135deg,#15803d,#16a34a 55%,#65a30d)' }}>
+            <div className="text-2xl" aria-hidden="true">🤖</div>
+            <div className="mt-1 font-bold text-sm">Need help deciding?</div>
+            <div className="text-xs text-green-50/90 mt-0.5">Ask the AI Advisor</div>
           </button>
-        ))}
-      </nav>
-      <Hero firstName={(session?.name || '').split(' ')[0]} go={go} />
-      <WhySolar go={go} />
-      <EligibilityCheck />
-      <RequestForm profile={session?.profile || {}} active={active} onPosted={() => setTimeout(() => go('my-requests-section'), 50)} />
-      <SubsidyRef />
-      <MyRequests requests={requests} />
+        </nav>
+      </aside>
+
+      {active && (
+        <nav aria-label="Household sections" className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-gray-200 grid grid-cols-4 pb-[env(safe-area-inset-bottom)]">
+          {VIEWS.map(([id, label, icon]) => (
+            <button key={id} type="button" onClick={() => go(id)} aria-current={view === id ? 'page' : undefined}
+              className={`relative flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold transition ${view === id ? 'text-green-700' : 'text-gray-500'}`}>
+              <span className={`text-xl leading-none px-4 py-1 rounded-full ${view === id ? 'bg-green-100' : ''}`} aria-hidden="true">{icon}</span>
+              {label}
+              {badge(id) > 0 && <span className="absolute top-1.5 left-1/2 ml-3 min-w-4 h-4 px-1 rounded-full bg-yellow-400 text-gray-900 text-[10px] font-bold flex items-center justify-center">{badge(id)}</span>}
+            </button>
+          ))}
+        </nav>
+      )}
+
+      <div className="min-w-0">
+        {view !== 'home' && <PageHead view={view} />}
+        {view === 'home' && <Dashboard firstName={(session?.name || '').split(' ')[0]} requests={requests} go={go} goAdvisor={goAdvisor} />}
+        {view === 'new' && (
+          <div className="space-y-6">
+            <ol className="flex items-center gap-3 text-sm font-semibold text-gray-600" aria-label="Steps">
+              <li className="flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">1</span>Check eligibility</li>
+              <li className="h-px w-8 bg-gray-300" aria-hidden="true" />
+              <li className="flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">2</span>Your details</li>
+            </ol>
+            <EligibilityCheck />
+            <RequestForm profile={session?.profile || {}} active={active && view === 'new'} onPosted={id => go('requests', id)} />
+          </div>
+        )}
+        {view === 'requests' && <MyRequests requests={requests} selectedId={selectedId} onSelect={setSelectedId} onNew={() => go('new')} />}
+        {view === 'learn' && (
+          <div className="space-y-8">
+            <SubsidyRef />
+            <WhySolar onPost={() => go('new')} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

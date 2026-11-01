@@ -124,7 +124,7 @@ export default function RequestForm({ profile, active, onPosted }) {
       if (fileRef.current) fileRef.current.value = '';
       if (markerRef.current) { mapRef.current?.removeLayer(markerRef.current); markerRef.current = null; }
       setPin(null);
-      onPosted?.();
+      onPosted?.(req.id);
     } catch (err) { toast(err.message, 'error'); }
     finally { setBusy(false); }
   }

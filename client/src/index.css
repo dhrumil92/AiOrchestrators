@@ -147,9 +147,6 @@ button:focus-visible, a:focus-visible, [role="button"]:focus-visible { outline: 
 /* Header height drives sticky offsets */
 :root { --hdr-h: 112px; }
 [data-hhsec] { scroll-margin-top: calc(var(--hdr-h) + 64px); }
-.hh-pill { transition: background .2s, color .2s; }
-.hh-pill.active { background:#16a34a; color:#fff; border-color:#16a34a; }
-.hh-subnav::-webkit-scrollbar { height:0; }
 
 
 /* AI markdown extras */
