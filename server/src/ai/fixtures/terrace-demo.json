@@ -1,0 +1,31 @@
+{
+  "obstructions": [
+    {
+      "name": "Staircase room",
+      "note": "This room is centrally located on the terrace and will cast a shadow, reducing the area available for solar panels."
+    },
+    {
+      "name": "Water tanks",
+      "note": "Two large water tanks are present on the terrace and will cast shadows, limiting where panels can be placed."
+    },
+    {
+      "name": "Parapet walls",
+      "note": "The walls around the edge of the terrace will cast shadows, especially during the morning and late afternoon."
+    },
+    {
+      "name": "Ventilation pipe",
+      "note": "A vertical pipe near the left parapet wall could obstruct panel placement or cast a small shadow."
+    },
+    {
+      "name": "Nearby trees",
+      "note": "Trees surrounding the building could cast shadows on the terrace, particularly at certain times of the day."
+    },
+    {
+      "name": "Surrounding buildings",
+      "note": "Other buildings in the neighborhood might cast shadows on the terrace depending on their height and the sun's position."
+    }
+  ],
+  "summary": "The terrace has several obstructions including a staircase room, water tanks, and parapet walls that will cast shadows. Nearby trees and surrounding buildings could also cause shading on the terrace.",
+  "confidence": "high",
+  "modelName": "gemini-2.5-flash"
+}

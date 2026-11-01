@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DEMO_REQUEST_ID } from '../../../shared/api.js';
 import { pool } from '../db/pool.js';
+import { processVendorNotes } from '../security/index.js';
 
 /** All seed data is fictional. Replaces all marketplace data in the database. */
 
@@ -109,15 +110,18 @@ async function seed(): Promise<void> {
     }
 
     for (const quote of quotes) {
+      const notes = processVendorNotes(quote.notes);
       await client.query(
         `INSERT INTO quotes
            (id, request_id, vendor_id, system_kw, price_rupees, panel_brand, panel_watts,
             dcr_confirmed, inverter_brand, inverter_kw, inverter_warranty_years,
-            panel_warranty_years, install_days, notes_raw, is_sample)
-         VALUES ($1, $2, $3, 2.5, $4, $5, $6, $7, $8, 3, $9, 25, $10, $11, TRUE)`,
+            panel_warranty_years, install_days, notes_raw, notes_clean, injection_flagged,
+            injection_reason, is_sample)
+         VALUES ($1, $2, $3, 2.5, $4, $5, $6, $7, $8, 3, $9, 25, $10, $11, $12, $13, $14, TRUE)`,
         [
           quote.id, DEMO_REQUEST_ID, quote.vendorId, quote.price, quote.panelBrand, quote.panelWatts,
           quote.dcr, quote.inverterBrand, quote.inverterWarranty, quote.days, quote.notes,
+          notes.clean, notes.flagged, notes.reason,
         ],
       );
     }

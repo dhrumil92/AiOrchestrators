@@ -87,6 +87,8 @@ Base path: `/api`. JSON unless stated. Errors use `{ "error": { "code": "...", "
 | GET | `/rules` | Rules, formulas, assumptions and source links | All |
 | GET | `/jobs/:id` | Job status (stretch) | H2 |
 
+List endpoints return bare arrays. `POST /requests`, `POST /requests/:id/photo`, `PATCH /requests/:id` and `POST /quotes/:id/accept` return a `ServiceRequest`. `POST /requests/:id/assessment` returns a `PhotoAssessment`. Payback values are unrounded, so display them to 1 decimal place.
+
 ### Key response: `GET /requests/:id/estimate`
 ```json
 {
@@ -181,4 +183,4 @@ Saved or template results always show a small "saved example" or "basic explanat
 - Use parameterised queries.
 - Store photos under generated names and never trust file names.
 - The role switcher is for demo only. Production requires login and ownership checks, as covered in `docs/SCALING.md`.
-- Vendors see approximate location and need no household phone number until a quote is accepted.
+- **Demo limitation:** the API has no roles, so vendors can see the exact pin. Production must return approximate location to vendors and share the household phone number only after a quote is accepted.
